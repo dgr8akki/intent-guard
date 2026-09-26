@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Intent Guard",
+  "short_name": "Intent Guard",
+  "version": "1.0.0",
+  "description": "Say what you're working on. Get a gentle nudge when you drift to pages that aren't part of it.",
+  "homepage_url": "https://github.com/dgr8akki/intent-guard",
+  "minimum_chrome_version": "116",
+  "permissions": ["storage"],
+  "host_permissions": ["https://ai-gateway.vercel.sh/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Intent Guard",
+    "default_popup": "popup/popup.html",
+    "default_icon": { "16": "icons/icon-16.png", "32": "icons/icon-32.png", "48": "icons/icon-48.png" }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}
