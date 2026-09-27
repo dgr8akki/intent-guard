@@ -16,6 +16,7 @@ describe('manifest', () => {
     const files = [
       manifest.background.service_worker,
       manifest.action.default_popup,
+      manifest.options_ui.page,
       ...manifest.content_scripts.flatMap((c) => [...c.js, ...(c.css ?? [])]),
       ...Object.values(manifest.icons),
       ...Object.values(manifest.action.default_icon),
@@ -23,13 +24,22 @@ describe('manifest', () => {
     for (const file of files) assert.ok(existsSync(new URL(file, src)), `missing ${file}`);
   });
 
-  it('asks for storage only and talks only to AI Gateway', () => {
+  it('asks for storage only and talks only to the two Jev providers', () => {
     assert.deepEqual(manifest.permissions, ['storage']);
-    assert.deepEqual(manifest.host_permissions, ['https://ai-gateway.vercel.sh/*']);
+    assert.deepEqual(manifest.host_permissions, ['https://ai-gateway.vercel.sh/*', 'https://api.typesafe.ai/*']);
     assert.ok(
       manifest.content_scripts.every((c) => !c.all_frames),
       'top frames only',
     );
+  });
+
+  it('exposes only the nudge card font to web pages', () => {
+    assert.deepEqual(manifest.web_accessible_resources, [
+      { resources: ['fonts/source-serif-4.woff2'], matches: ['http://*/*', 'https://*/*'] },
+    ]);
+    for (const file of manifest.web_accessible_resources[0].resources) {
+      assert.ok(existsSync(new URL(file, src)), `missing ${file}`);
+    }
   });
 
   it('keeps the store description within 132 characters', () => {

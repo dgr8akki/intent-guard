@@ -5,12 +5,18 @@
  */
 
 import { JevError, createJevClient } from './lib/jev.js';
-import { advance, createJudge, isAllowed, nudgeAt } from './lib/guard.js';
+import { advance, createJudge, disallow, isAllowed, nudgeAt } from './lib/guard.js';
 
 chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
 
+// First install: open settings in a tab to connect a key, rather than leaving it to a 320px popup.
+chrome.runtime.onInstalled.addListener(({ reason }) => {
+  if (reason === 'install') chrome.runtime.openOptionsPage();
+});
+
 const jev = createJevClient({
   getKey: async () => (await chrome.storage.local.get('apiKey')).apiKey ?? '',
+  getProvider: async () => (await chrome.storage.local.get('provider')).provider,
 });
 const judge = createJudge({ jev });
 
@@ -49,6 +55,7 @@ const handlers = {
   check: (message) => check(message.page),
   allow: (message) => update((s) => ({ allowHosts: [...s.allowHosts, new URL(message.url).hostname], offSince: null })),
   snooze: () => update(() => ({ snoozeUntil: Date.now() + 5 * 60_000 })),
+  disallow: (message) => update((s) => disallow(s, message.host)),
 };
 
 chrome.runtime.onMessage.addListener((message, _sender, reply) => {

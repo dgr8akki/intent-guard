@@ -19,8 +19,16 @@ async function load(reply, url = 'https://www.youtube.com/shorts/abc?feature=sha
     },
   });
   const sent = [];
+  const fonts = [];
+  window.FontFace = class {
+    constructor(family, source, descriptors) {
+      Object.assign(this, { family, source, descriptors });
+    }
+  };
+  Object.defineProperty(window.document, 'fonts', { value: { add: (face) => fonts.push(face) } });
   window.chrome = {
     runtime: {
+      getURL: (path) => `chrome-extension://intent-guard/${path}`,
       sendMessage: async (message) => {
         sent.push(message);
         return reply(message);
@@ -31,7 +39,7 @@ async function load(reply, url = 'https://www.youtube.com/shorts/abc?feature=sha
   window.eval(script);
   await new Promise((resolve) => setTimeout(resolve, 0));
   const nudge = () => window.document.querySelector('intent-guard-nudge')?.shadowRoot;
-  return { window, sent, nudge, close: () => window.close() };
+  return { window, sent, fonts, nudge, close: () => window.close() };
 }
 
 const drifted = {
@@ -56,6 +64,17 @@ describe('content script', () => {
     const { nudge, close } = await load(() => drifted);
     assert.match(nudge().textContent, /“Book flights”/);
     assert.ok(nudge().querySelector('[data-act="back"]'));
+    close();
+  });
+
+  it('registers the bundled font once, under its own family name', async () => {
+    const { window, fonts, nudge, close } = await load(() => drifted);
+    window.document.dispatchEvent(new window.Event('visibilitychange')); // shows the nudge again
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.ok(nudge());
+    assert.equal(fonts.length, 1);
+    assert.equal(fonts[0].family, 'Intent Guard Serif');
+    assert.equal(fonts[0].source, 'url("chrome-extension://intent-guard/fonts/source-serif-4.woff2")');
     close();
   });
 

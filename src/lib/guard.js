@@ -91,6 +91,35 @@ export function isAllowed(session, url) {
   return session.allowHosts.includes(new URL(url).hostname);
 }
 
+/** Time in session for the popup: `{ value: '42', unit: 'min' }`, or `'1:05'` hr past an hour. */
+export function formatElapsed(ms) {
+  const minutes = Math.max(0, Math.floor(ms / 60_000));
+  if (minutes < 1) return { value: '<1', unit: 'min' };
+  if (minutes < 60) return { value: String(minutes), unit: 'min' };
+  return { value: `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`, unit: 'hr' };
+}
+
+/**
+ * The popup's drift line, or null while on task:
+ * "Off task for 1 min · nudge in 1 min", "… · nudge due", or the snooze when one is running.
+ *
+ * @param {Session} session @param {number} now
+ */
+export function driftLine(session, now) {
+  if (session.offSince === null) return null;
+  const off = Math.floor((now - session.offSince) / 60_000);
+  const text = `Off task for ${off < 1 ? 'under a minute' : `${off} min`}`;
+  const snoozed = Math.ceil((session.snoozeUntil - now) / 60_000);
+  const left = Math.ceil((session.offSince + session.driftMinutes * 60_000 - now) / 60_000);
+  const detail = snoozed > 0 ? `snoozed for ${snoozed} more min` : left > 0 ? `nudge in ${left} min` : 'nudge due';
+  return { text, detail };
+}
+
+/** Stops allowing a site the user allowed from the nudge. @param {Session} session @param {string} host */
+export function disallow(session, host) {
+  return { ...session, allowHosts: session.allowHosts.filter((h) => h !== host) };
+}
+
 /**
  * Judges pages one at a time (TypeSafe rate-limits bursts), caching by task
  * and page. The cache lives in memory; a service-worker restart only costs a

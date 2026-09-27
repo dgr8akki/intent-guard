@@ -1,0 +1,624 @@
+/* Intent Guard settings, after the Claude Design "Broadsheet" redesign (single column, flush left).
+   Tokens are the design's drop-in :root block; Source Serif 4 is bundled, so the page makes no remote requests. */
+
+@font-face {
+  font-family: 'Source Serif 4';
+  src: url('../fonts/source-serif-4.woff2') format('woff2');
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Source Serif 4';
+  src: url('../fonts/source-serif-4-italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light dark;
+
+  /* colour */
+  --bg: #f3f2f2;
+  --surface: #eae9e9; /* masked-key chip, hover fill */
+  --field: #eae9e9; /* input fill */
+  --ink: #201e1d;
+  --muted: #5c5959; /* 6.2:1 on --bg */
+  --line: #8a8686; /* control borders, 3.2:1 */
+  --rule: #201e1d; /* masthead rules */
+  --accent: #00739a; /* 4.8:1 with --on-accent */
+  --accent-hover: #006786;
+  --accent-press: #004961;
+  --on-accent: #f3f2f2;
+  --accent-tint: #e9f8ff; /* selected provider */
+  --link: #006786;
+  --link-hover: #004961;
+  --success: #006786;
+  --danger: #aa0b56;
+  --danger-tint: #fff1f4;
+  --focus: var(--accent);
+
+  /* type */
+  --font: 'Source Serif 4', Georgia, serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* space and shape */
+  --page-pad: clamp(20px, 9vw, 132px);
+  --column: 600px;
+  --control-h: 44px;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --motion: 150ms ease;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1b1a19;
+    --surface: #262423;
+    --field: #262423;
+    --ink: #ece8e7;
+    --muted: #b0acab;
+    --line: #7a7675;
+    --rule: #ece8e7;
+    --accent: #62c5ee;
+    --accent-hover: #99e0ff;
+    --accent-press: #cbeeff;
+    --on-accent: #1b1a19;
+    --accent-tint: #0f2a35;
+    --link: #99e0ff;
+    --link-hover: #cbeeff;
+    --success: #99e0ff;
+    --danger: #ff90b1;
+    --danger-tint: #3a1622;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion: 0ms;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font:
+    15px/1.55 var(--font),
+    Georgia,
+    serif;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--link);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  color: var(--link-hover);
+  text-decoration-thickness: 2px;
+}
+
+code {
+  font-family: var(--mono);
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* — page — */
+
+.page {
+  max-width: 1440px;
+  padding: 0 var(--page-pad) clamp(48px, 7vw, 96px);
+}
+
+.masthead {
+  padding-top: clamp(18px, 3vw, 40px);
+}
+
+.masthead-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 20px;
+  padding: 10px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  box-shadow: 0 -5px 0 -2px var(--rule); /* the broadsheet's thick-over-thin double rule */
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+}
+
+.masthead-section {
+  font-size: 14px;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.kicker {
+  margin: clamp(36px, 6vw, 72px) 0 14px;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--link);
+}
+
+h1 {
+  max-width: 17ch;
+  font-size: clamp(32px, 4.4vw, 54px);
+  font-weight: 600;
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+main {
+  max-width: var(--column);
+  margin-top: clamp(40px, 5.5vw, 64px);
+}
+
+h2 {
+  margin-bottom: 10px;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+}
+
+.intro {
+  max-width: 54ch;
+  margin-bottom: 32px;
+  font-size: 16px;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.ink {
+  color: var(--ink);
+}
+
+/* — buttons — */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--control-h);
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font: 600 15px/1.2 var(--font);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--motion),
+    border-color var(--motion);
+}
+
+.btn-primary {
+  padding: 0 22px;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-primary:active {
+  background: var(--accent-press);
+}
+
+.btn-secondary {
+  border-color: var(--line);
+}
+
+.btn-secondary:hover {
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+}
+
+.btn-secondary:active {
+  background: color-mix(in srgb, var(--ink) 14%, transparent);
+}
+
+.btn-danger {
+  padding: 0 14px;
+  color: var(--danger);
+}
+
+.btn-danger:hover {
+  background: var(--danger-tint);
+}
+
+.btn[aria-busy='true'] {
+  cursor: progress;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}
+
+/* — provider tiles: native radios inside labels keep arrow-key behaviour — */
+
+.providers {
+  min-width: 0;
+  margin: 0 0 30px;
+  padding: 0;
+  border: 0;
+}
+
+.providers legend,
+.key-field > label {
+  padding: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.providers legend {
+  margin-bottom: 12px;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.tile {
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    border-color var(--motion),
+    background-color var(--motion);
+}
+
+.tile input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tile:hover {
+  border-color: var(--ink);
+  background: var(--surface);
+}
+
+.tile:has(input:checked) {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  background: var(--accent-tint);
+}
+
+.tile:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.dot {
+  width: 16px;
+  height: 16px;
+  margin-top: 4px;
+  border: 1.5px solid var(--line);
+  border-radius: 50%;
+}
+
+.tile:hover .dot {
+  border-color: var(--accent);
+}
+
+.tile input:checked + .dot {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: inset 0 0 0 4px var(--bg);
+}
+
+.tile-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tile-title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.tile-desc {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* — steps: italic serif numerals — */
+
+.steps {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 30px;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.steps li {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: baseline;
+  font-size: 16px;
+  line-height: 1.5;
+  text-wrap: pretty;
+  counter-increment: step;
+}
+
+.steps li::before {
+  content: counter(step);
+  font-size: 22px;
+  font-style: italic;
+  line-height: 1;
+  color: var(--link);
+}
+
+.steps a {
+  white-space: nowrap;
+}
+
+.external {
+  display: inline-block;
+  margin-left: 3px;
+  vertical-align: -1px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* — key field — */
+
+.key-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.key-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.input {
+  flex: 1 1 260px;
+  min-width: 0;
+  min-height: var(--control-h);
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--field);
+  color: var(--ink);
+  caret-color: var(--accent);
+  font: 15px var(--mono);
+}
+
+.input::placeholder {
+  color: color-mix(in srgb, var(--ink) 65%, transparent);
+  opacity: 1;
+}
+
+.input:hover {
+  border-color: color-mix(in srgb, var(--ink) 70%, transparent);
+}
+
+.input:focus-visible {
+  border-color: var(--accent);
+  outline-offset: 0;
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--danger);
+  box-shadow: inset 0 0 0 1px var(--danger);
+}
+
+.input:read-only {
+  border-style: dashed;
+  background: transparent;
+}
+
+/* — status lines: always an icon as well as colour; one line reserved so nothing jumps — */
+
+.status {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  max-width: 60ch;
+  min-height: 24px;
+  margin-top: 2px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.status svg,
+.status .spinner {
+  flex: none;
+  margin-top: 4px;
+}
+
+.status-busy {
+  color: var(--muted);
+}
+
+.status-ok {
+  color: var(--success);
+}
+
+.status-error {
+  color: var(--danger);
+}
+
+.status-neutral {
+  color: var(--ink);
+}
+
+/* — connected — */
+
+.connected {
+  margin-bottom: 8px;
+}
+
+.connected-head {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.connected-mark {
+  flex: none;
+  color: var(--accent);
+}
+
+.connected-title {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.connected-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-top: 4px;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.chip {
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.indent {
+  margin-left: 50px;
+}
+
+.connected .actions {
+  margin-top: 22px;
+}
+
+.connected .status {
+  margin-top: 16px;
+}
+
+/* — privacy line — */
+
+.privacy {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  max-width: 58ch;
+  margin-top: 36px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.privacy svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--ink);
+}
+
+.privacy code {
+  color: var(--ink);
+}
+
+@media (max-width: 480px) {
+  .indent {
+    margin-left: 0;
+  }
+}

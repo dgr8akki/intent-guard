@@ -6,6 +6,9 @@ import {
   advance,
   createJudge,
   describePage,
+  disallow,
+  driftLine,
+  formatElapsed,
   isAllowed,
   newSession,
   nudgeAt,
@@ -96,5 +99,34 @@ describe('createJudge', () => {
     await assert.rejects(judge.judge('a', page), /boom/);
     fail = false;
     assert.equal((await judge.judge('a', page)).verdict, 'on');
+  });
+});
+
+describe('popup session details', () => {
+  const start = newSession('Book flights', 2, 0);
+
+  it('formats time in session', () => {
+    assert.deepEqual(formatElapsed(30_000), { value: '<1', unit: 'min' });
+    assert.deepEqual(formatElapsed(42 * 60_000), { value: '42', unit: 'min' });
+    assert.deepEqual(formatElapsed(65 * 60_000), { value: '1:05', unit: 'hr' });
+    assert.deepEqual(formatElapsed(-5), { value: '<1', unit: 'min' });
+  });
+
+  it('describes drift only while off task', () => {
+    assert.equal(driftLine(start, 10_000), null);
+    const off = { ...start, offSince: 0 };
+    assert.deepEqual(driftLine(off, 20_000), { text: 'Off task for under a minute', detail: 'nudge in 2 min' });
+    assert.deepEqual(driftLine(off, 70_000), { text: 'Off task for 1 min', detail: 'nudge in 1 min' });
+    assert.deepEqual(driftLine(off, 3 * 60_000), { text: 'Off task for 3 min', detail: 'nudge due' });
+    assert.deepEqual(driftLine({ ...off, snoozeUntil: 7 * 60_000 }, 3 * 60_000), {
+      text: 'Off task for 3 min',
+      detail: 'snoozed for 4 more min',
+    });
+  });
+
+  it('stops allowing one site', () => {
+    const s = { ...start, allowHosts: ['a.com', 'b.com'] };
+    assert.deepEqual(disallow(s, 'a.com').allowHosts, ['b.com']);
+    assert.deepEqual(s.allowHosts, ['a.com', 'b.com'], 'does not mutate');
   });
 });
