@@ -369,6 +369,37 @@ p {
   font-size: 13px;
 }
 
+/* — what leaves the browser, said once — */
+
+.consent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.consent code {
+  font: 12px var(--mono);
+  color: var(--ink);
+}
+
+.consent a {
+  color: var(--link);
+}
+
+.consent .btn {
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
 /* — active: what you wrote reads as what you committed to — */
 
 .task {
@@ -393,6 +424,51 @@ p {
 .meta {
   margin: 8px 0 16px;
   font-size: 14px;
+}
+
+/* — still on this? asked after four hours — */
+
+.stale {
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.stale .lede {
+  margin-bottom: 12px;
+}
+
+.stale .row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+/* — the last failed check, under the task — */
+
+.error-line {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.error-line svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--danger);
+}
+
+.error-line.tone-busy svg {
+  color: var(--muted);
+}
+
+.error-line a {
+  color: var(--link);
+  white-space: nowrap;
 }
 
 /* — enhanced active state: time in session, drift, allowed sites — */
@@ -477,4 +553,18 @@ p {
 
 .allowed .btn-icon:hover {
   color: var(--ink);
+}
+
+/* — never send this site — */
+
+.skip {
+  margin-bottom: 12px;
+}
+
+.skip .meta {
+  margin: 0;
+}
+
+.skip a {
+  color: var(--link);
 }

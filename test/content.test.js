@@ -6,11 +6,11 @@ import { JSDOM } from 'jsdom';
 const script = readFileSync(new URL('../src/content/content.js', import.meta.url), 'utf8');
 
 /** Runs the real content script in a jsdom page; `reply` answers each runtime message. */
-async function load(reply, url = 'https://www.youtube.com/shorts/abc?feature=share#t=1') {
-  const dom = new JSDOM(
-    '<title>Cat Shorts</title><meta name="description" content="Funny cats"><main><h1>Cats</h1><p>So many cats.</p></main>',
-    { url, runScripts: 'outside-only', pretendToBeVisual: true },
-  );
+const PAGE =
+  '<title>Cat Shorts</title><meta name="description" content="Funny cats"><main><h1>Cats</h1><p>So many cats.</p></main>';
+
+async function load(reply, url = 'https://www.youtube.com/shorts/abc?feature=share#t=1', html = PAGE) {
+  const dom = new JSDOM(html, { url, runScripts: 'outside-only', pretendToBeVisual: true });
   const { window } = dom;
   // jsdom has no layout, so innerText is missing; textContent is close enough here.
   Object.defineProperty(window.HTMLElement.prototype, 'innerText', {
@@ -39,8 +39,15 @@ async function load(reply, url = 'https://www.youtube.com/shorts/abc?feature=sha
   window.eval(script);
   await new Promise((resolve) => setTimeout(resolve, 0));
   const nudge = () => window.document.querySelector('intent-guard-nudge')?.shadowRoot;
-  return { window, sent, fonts, nudge, close: () => window.close() };
+  const checks = () => sent.filter((m) => m.type === 'check');
+  return { window, sent, checks, fonts, nudge, close: () => window.close() };
 }
+
+/** Messages are created in the jsdom realm; copy them before comparing structures. */
+const plain = (value) => JSON.parse(JSON.stringify(value));
+
+/** Answers the exclusion question, then `check` like the given reply. */
+const withExclusion = (excluded, reply) => (m) => (m.type === 'excluded' ? { excluded } : reply);
 
 const drifted = {
   active: true,
@@ -52,8 +59,8 @@ const drifted = {
 
 describe('content script', () => {
   it('sends origin, path, title and text only', async () => {
-    const { sent, close } = await load(() => ({ active: false }));
-    const { page } = sent[0];
+    const { checks, close } = await load(withExclusion(false, { active: false }));
+    const { page } = checks()[0];
     assert.equal(page.url, 'https://www.youtube.com/shorts/abc');
     assert.equal(page.title, 'Cat Shorts');
     assert.match(page.text, /Cats Funny cats/);
@@ -89,6 +96,52 @@ describe('content script', () => {
       assert.equal(nudge(), undefined, JSON.stringify(reply));
       close();
     }
+  });
+
+  it('asks the service worker about the host once, then sends only the origin when it is excluded', async () => {
+    const { sent, checks, close } = await load(
+      withExclusion(true, { active: false }),
+      'https://mail.google.com/mail/u/0/#inbox',
+    );
+    assert.deepEqual(plain(sent[0]), { type: 'excluded', host: 'mail.google.com' });
+    assert.deepEqual(plain(checks()[0].page), { url: 'https://mail.google.com', title: '', text: '' });
+    close();
+  });
+
+  it('sends only the origin from a page with a password field', async () => {
+    const { sent, checks, close } = await load(
+      withExclusion(false, { active: false }),
+      'https://shop.example/account/login?next=/cart',
+      `${PAGE}<form><input type="password" name="pw"></form>`,
+    );
+    assert.deepEqual(plain(checks()[0].page), { url: 'https://shop.example', title: '', text: '' });
+    assert.ok(!sent.some((m) => m.type === 'excluded'), 'no need to ask when the page decides itself');
+    close();
+  });
+
+  it('sends only the origin from a page marked noindex', async () => {
+    const { checks, close } = await load(
+      withExclusion(false, { active: false }),
+      'https://docs.example/private/abc123',
+      `${PAGE}<meta name="robots" content="noindex, nofollow">`,
+    );
+    assert.deepEqual(plain(checks()[0].page), { url: 'https://docs.example', title: '', text: '' });
+    close();
+  });
+
+  it('treats an unanswered exclusion question as excluded', async () => {
+    const { checks, close } = await load((m) => (m.type === 'excluded' ? {} : { active: false }));
+    assert.equal(checks()[0].page.title, '');
+    close();
+  });
+
+  it('is a no-op when injected a second time into the same page', async () => {
+    const { window, checks, close } = await load(withExclusion(false, { active: false }));
+    window.eval(script); // executeScript over open tabs can hit a page that already has it
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(checks().length, 1);
+    assert.equal(window.__intentGuard, true);
+    close();
   });
 
   it('hides "Back to task" when there is nowhere to go back to', async () => {

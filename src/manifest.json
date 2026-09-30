@@ -6,7 +6,7 @@
   "description": "Say what you're working on. Get a gentle nudge when you drift to pages that aren't part of it.",
   "homepage_url": "https://github.com/dgr8akki/intent-guard",
   "minimum_chrome_version": "140",
-  "permissions": ["storage"],
+  "permissions": ["scripting", "storage"],
   "host_permissions": ["https://ai-gateway.vercel.sh/*", "https://api.typesafe.ai/*"],
   "background": {
     "service_worker": "background.js",

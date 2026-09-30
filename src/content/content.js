@@ -4,6 +4,10 @@
  * nudge once the service worker says the user has drifted long enough.
  */
 (() => {
+  // The worker injects this into tabs that were open before install or session start; a page may already have it.
+  if (window.__intentGuard) return;
+  window.__intentGuard = true;
+
   const TEXT_LIMIT = 800;
   const URL_POLL_MS = 1000;
   const SETTLE_MS = 1500; // single-page apps update the title after the URL
@@ -12,9 +16,28 @@
   let timer = 0;
   let lastUrl = location.href;
   let host = null;
+  let hostExcluded = null; // unknown until the service worker has answered for this host
 
-  /** Origin and path only: query strings and fragments can carry tokens. */
-  function snapshot() {
+  const send = (message) => chrome.runtime.sendMessage(message).catch(() => ({}));
+
+  /**
+   * Pages that are never described to Jev: anything with a password field, anything marked
+   * noindex, and hosts on the built-in or user list (only the service worker can read that list).
+   * An unanswered question counts as excluded; better a missed check than a mail subject sent.
+   */
+  async function isExcluded() {
+    if (document.querySelector('input[type="password"]')) return true;
+    if (/\bnoindex\b/i.test(document.querySelector('meta[name="robots"]')?.content ?? '')) return true;
+    if (hostExcluded === null) {
+      const reply = await send({ type: 'excluded', host: location.hostname });
+      if (typeof reply?.excluded === 'boolean') hostExcluded = reply.excluded;
+    }
+    return hostExcluded ?? true;
+  }
+
+  /** Origin and path only: query strings and fragments can carry tokens. Excluded pages send the origin alone. */
+  function snapshot(excluded) {
+    if (excluded) return { url: location.origin, title: '', text: '' };
     const root = document.querySelector('main, [role="main"], article') ?? document.body;
     const heading = document.querySelector('h1')?.innerText ?? '';
     const description = document.querySelector('meta[name="description"]')?.content ?? '';
@@ -22,12 +45,10 @@
     return { url: location.origin + location.pathname, title: document.title, text: text.slice(0, TEXT_LIMIT) };
   }
 
-  const send = (message) => chrome.runtime.sendMessage(message).catch(() => ({}));
-
   async function check() {
     clearTimeout(timer);
     if (document.visibilityState !== 'visible') return;
-    const result = await send({ type: 'check', page: snapshot() });
+    const result = await send({ type: 'check', page: snapshot(await isExcluded()) });
     if (!result?.active || result.nudgeAt === null || result.nudgeAt === undefined) return hide();
     const wait = result.nudgeAt - Date.now();
     // Re-check when the timer fires rather than trusting it: the user may have got back on task in another tab.
@@ -142,7 +163,9 @@
     timer = setTimeout(check, SETTLE_MS);
   }, URL_POLL_MS);
   chrome.runtime.onMessage.addListener((message) => {
-    if (message?.type === 'recheck') check();
+    if (message?.type !== 'recheck') return;
+    hostExcluded = null; // the "never send" list may have changed
+    check();
   });
 
   check();

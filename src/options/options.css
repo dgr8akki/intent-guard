@@ -596,6 +596,51 @@ h2 {
 
 /* — privacy line — */
 
+/* — never send these sites — */
+
+.exclusions {
+  margin-top: 40px;
+}
+
+.exclusions .key-row {
+  margin-top: 16px;
+}
+
+.host-list {
+  max-width: 480px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.host-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 36px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent);
+}
+
+.host-list code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.host-list .btn-icon {
+  width: 32px;
+  min-height: 32px;
+  height: 32px;
+  flex: none;
+  padding: 0;
+  color: var(--muted);
+}
+
+.host-list .btn-icon:hover {
+  color: var(--ink);
+}
+
 .privacy {
   display: flex;
   gap: 10px;

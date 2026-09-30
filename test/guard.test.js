@@ -8,7 +8,10 @@ import {
   describePage,
   disallow,
   driftLine,
+  errorLine,
+  expiryReason,
   formatElapsed,
+  isStale,
   isAllowed,
   newSession,
   nudgeAt,
@@ -23,6 +26,14 @@ describe('toVerdict', () => {
     assert.equal(toVerdict(relevance(0, 0.1, 0.45, 0.45)).verdict, 'on');
     assert.equal(toVerdict(relevance(0.35, 0.35, 0.2, 0.1)).verdict, 'off');
     assert.equal(toVerdict(relevance(0.25, 0.25, 0.25, 0.25)).verdict, 'unclear');
+  });
+});
+
+describe('toVerdict with a malformed answer', () => {
+  it('throws a JevError the popup can show instead of a bare TypeError', () => {
+    for (const answers of [undefined, null, {}, { relevance: {} }, { relevance: { probabilities: 'high' } }]) {
+      assert.throws(() => toVerdict(answers), { name: 'JevError', message: /relevance/ }, JSON.stringify(answers));
+    }
   });
 });
 
@@ -128,5 +139,80 @@ describe('popup session details', () => {
     const s = { ...start, allowHosts: ['a.com', 'b.com'] };
     assert.deepEqual(disallow(s, 'a.com').allowHosts, ['b.com']);
     assert.deepEqual(s.allowHosts, ['a.com', 'b.com'], 'does not mutate');
+  });
+});
+
+describe('errorLine', () => {
+  it('says the key stopped working for auth failures, with a settings link', () => {
+    for (const status of [401, 403]) {
+      assert.deepEqual(errorLine({ message: 'Your API key was rejected. Check it in settings.', status, at: 0 }), {
+        text: 'Your Jev key stopped working.',
+        action: 'Fix in settings',
+        tone: 'auth',
+      });
+    }
+  });
+
+  it('shows the budget message for 402 as a key problem', () => {
+    assert.deepEqual(errorLine({ message: 'Your AI Gateway budget is used up.', status: 402, at: 0 }), {
+      text: 'Your AI Gateway budget is used up.',
+      action: 'Fix in settings',
+      tone: 'auth',
+    });
+  });
+
+  it('plays down a busy provider', () => {
+    assert.deepEqual(errorLine({ message: 'Jev is busy. Trying again in 30 s.', status: 429, at: 0 }), {
+      text: 'Jev is busy; pages are re-checked as you go.',
+      action: 'Settings',
+      tone: 'busy',
+    });
+  });
+
+  it('passes other messages through', () => {
+    assert.deepEqual(
+      errorLine({
+        message: "Can't reach ai-gateway.vercel.sh. Check your connection and try again.",
+        status: 0,
+        at: 0,
+      }),
+      {
+        text: "Can't reach ai-gateway.vercel.sh. Check your connection and try again.",
+        action: 'Settings',
+        tone: 'other',
+      },
+    );
+    assert.equal(errorLine(null), null);
+  });
+});
+
+describe('session expiry', () => {
+  const HOUR = 3_600_000;
+  const start = newSession('Book flights', 2, 0);
+
+  it('ends a session nobody has checked a page for in 90 minutes', () => {
+    assert.equal(expiryReason(start, 89 * 60_000), null);
+    assert.equal(expiryReason(start, 91 * 60_000), 'idle');
+    assert.equal(expiryReason({ ...start, lastCheckAt: 2 * HOUR }, 3 * HOUR), null);
+    assert.equal(expiryReason({ ...start, lastCheckAt: 2 * HOUR }, 4 * HOUR), 'idle');
+  });
+
+  it('ends a session after 8 hours no matter how busy it was', () => {
+    assert.equal(expiryReason({ ...start, lastCheckAt: 8 * HOUR }, 8 * HOUR + 1), 'old');
+    assert.equal(expiryReason({ ...start, lastCheckAt: 7 * HOUR }, 7 * HOUR + 60_000), null);
+  });
+
+  it('falls back to the start time for sessions saved before lastCheckAt existed', () => {
+    const legacy = { ...start };
+    delete legacy.lastCheckAt;
+    assert.equal(expiryReason(legacy, 91 * 60_000), 'idle');
+    assert.equal(expiryReason(null, 1), null);
+  });
+
+  it('asks "still on this?" after 4 hours, until the user says so', () => {
+    assert.equal(isStale(start, 4 * HOUR - 1), false);
+    assert.equal(isStale(start, 4 * HOUR + 1), true);
+    assert.equal(isStale({ ...start, confirmedAt: 4 * HOUR }, 5 * HOUR), false);
+    assert.equal(isStale({ ...start, confirmedAt: 4 * HOUR }, 8 * HOUR + 1), true);
   });
 });

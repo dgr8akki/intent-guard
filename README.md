@@ -28,6 +28,7 @@
 - **Bring your own key.** Use a TypeSafe key directly or a Vercel AI Gateway key.
 - **Cheap and fast.** One Jev call per page (about 150 ms), cached for the session. Jev costs $0.042 per million input tokens.
 - **Quiet when off.** Nothing is sent to anyone unless a session is running.
+- **Skips what it shouldn't see.** Mail, banking, government, health and password-manager sites, sign-in pages, and any page with a password field or marked `noindex` are never described to Jev. Add your own under **Never send these sites**.
 
 ## How it works
 
@@ -51,7 +52,7 @@ Intent Guard isn't on the Chrome Web Store yet. To install from source:
 2. Open `chrome://extensions` and turn on **Developer mode**.
 3. Click **Load unpacked** and select the unzipped folder (or `src/` in a clone).
 4. The settings page opens on install. Pick where your key comes from, **TypeSafe** ([create a key](https://console.typesafe.ai/keys)) or **Vercel AI Gateway** ([create a key](https://vercel.com/docs/ai-gateway/authentication-and-byok/api-keys)), paste it and select **Connect**. The key is checked before it's saved. (Later: the ⚙ in the popup.)
-5. Click the Intent Guard icon, type what you're working on and press **Start**. Reload tabs that were open before you installed.
+5. Click the Intent Guard icon, type what you're working on and press **Start**.
 
 With Vercel, set a [spend limit](https://vercel.com/docs/ai-gateway/observability-and-spend/budgets) on the key. Either way, a full day of browsing costs well under a cent.
 
@@ -69,14 +70,15 @@ Once connected, the key shows only as `vck_…a1b2` with **Test**, **Replace** a
 
 ## Privacy and permissions
 
-| Permission                          | Why                                                                     |
-| ----------------------------------- | ----------------------------------------------------------------------- |
-| Content script on all http(s) pages | Reads the page title and opening text during a session; shows the nudge |
-| `https://api.typesafe.ai/*`         | Sends the task and page summary to Jev, if you picked TypeSafe          |
-| `https://ai-gateway.vercel.sh/*`    | Sends the task and page summary to Jev, if you picked Vercel            |
-| `storage`                           | Keeps your API key and session in this browser                          |
+| Permission                          | Why                                                                                          |
+| ----------------------------------- | -------------------------------------------------------------------------------------------- |
+| Content script on all http(s) pages | Reads the page title and opening text during a session; shows the nudge                      |
+| `https://api.typesafe.ai/*`         | Sends the task and page summary to Jev, if you picked TypeSafe                               |
+| `https://ai-gateway.vercel.sh/*`    | Sends the task and page summary to Jev, if you picked Vercel                                 |
+| `storage`                           | Keeps your API key and session in this browser                                               |
+| `scripting`                         | Adds the page checker to tabs that were already open when you installed or started a session |
 
-For each page, only the origin and path, the title and up to 800 characters of heading and opening text are sent, either to TypeSafe directly or to Vercel AI Gateway, which forwards them to TypeSafe. Query strings, URL fragments, form contents and embedded frames are never sent. See [PRIVACY.md](PRIVACY.md).
+For each page, only the origin and path, the title and up to 800 characters of heading and opening text are sent, either to TypeSafe directly or to Vercel AI Gateway, which forwards them to TypeSafe. Query strings, URL fragments, form contents and embedded frames are never sent. Mail, banking, government, health and password-manager sites, sign-in pages, and any page with a password field or marked `noindex` are never described at all, and you can add your own sites under **Never send these sites** in settings (or **Don't judge this site** in the popup). See [PRIVACY.md](PRIVACY.md).
 
 ## Development
 

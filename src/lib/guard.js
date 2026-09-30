@@ -5,6 +5,8 @@
  * @module lib/guard
  */
 
+import { JevError } from './jev.js';
+
 /** The one question asked about every page. */
 export const QUESTIONS = {
   relevance: {
@@ -41,11 +43,47 @@ export const TEXT_LIMIT = 800;
  * @property {number} snoozeUntil No nudges before this time.
  * @property {number | null} offSince When the current off-task stretch began.
  * @property {string | null} lastOnTaskUrl Where "Back to task" goes.
+ * @property {number} [lastCheckAt] When a page last reported in; a session nobody uses ends on its own.
+ * @property {number} [confirmedAt] When the user last said they were still on it.
  */
 
 /** @param {string} intent @param {number} [driftMinutes] @param {number} [now] @returns {Session} */
 export function newSession(intent, driftMinutes = 2, now = Date.now()) {
-  return { intent, startedAt: now, driftMinutes, allowHosts: [], snoozeUntil: 0, offSince: null, lastOnTaskUrl: null };
+  return {
+    intent,
+    startedAt: now,
+    driftMinutes,
+    allowHosts: [],
+    snoozeUntil: 0,
+    offSince: null,
+    lastOnTaskUrl: null,
+    lastCheckAt: now,
+  };
+}
+
+/** A session with no page checked for this long was abandoned, not paused. */
+export const IDLE_LIMIT_MS = 90 * 60_000;
+/** No session outlives a working day; yesterday's task must not judge today's pages. */
+export const SESSION_LIMIT_MS = 8 * 3_600_000;
+/** From here the popup asks whether the task is still the task. */
+export const STALE_AFTER_MS = 4 * 3_600_000;
+
+/**
+ * Why a session should end on its own, or null while it is still live.
+ *
+ * @param {Session | null | undefined} session @param {number} now
+ * @returns {'idle' | 'old' | null}
+ */
+export function expiryReason(session, now) {
+  if (!session) return null;
+  if (now - session.startedAt > SESSION_LIMIT_MS) return 'old';
+  if (now - (session.lastCheckAt ?? session.startedAt) > IDLE_LIMIT_MS) return 'idle';
+  return null;
+}
+
+/** Whether the popup should lead with "Still working on this?". @param {Session} session @param {number} now */
+export function isStale(session, now) {
+  return now - (session.confirmedAt ?? session.startedAt) > STALE_AFTER_MS;
 }
 
 /** The `state` Jev sees: the task, then the page. */
@@ -61,7 +99,12 @@ export function describePage(intent, { url, title, text = '' }) {
  * @returns {{ verdict: 'on' | 'off' | 'unclear', on: number }}
  */
 export function toVerdict(answers) {
-  const p = (level) => answers.relevance.probabilities[level] ?? 0;
+  const probabilities = answers?.relevance?.probabilities;
+  if (typeof probabilities !== 'object' || probabilities === null) {
+    // A proxy or API change can answer with the right shape for the client and still no score.
+    throw new JevError('Jev answered without a relevance score for this page.', { status: 200 });
+  }
+  const p = (level) => probabilities[level] ?? 0;
   const on = p(2) + p(3);
   const off = p(0) + p(1);
   return { verdict: on >= VERDICT_THRESHOLD ? 'on' : off >= VERDICT_THRESHOLD ? 'off' : 'unclear', on };
@@ -113,6 +156,24 @@ export function driftLine(session, now) {
   const left = Math.ceil((session.offSince + session.driftMinutes * 60_000 - now) / 60_000);
   const detail = snoozed > 0 ? `snoozed for ${snoozed} more min` : left > 0 ? `nudge in ${left} min` : 'nudge due';
   return { text, detail };
+}
+
+/**
+ * The popup's line about the last failed check, or null when checks succeed.
+ * Key problems get a plain sentence and a way to settings; a busy provider is
+ * played down because the next page retries anyway.
+ *
+ * @param {{ message: string, status: number | null, at: number } | null | undefined} lastError
+ * @returns {{ text: string, action: string, tone: 'auth' | 'busy' | 'other' } | null}
+ */
+export function errorLine(lastError) {
+  if (!lastError) return null;
+  const { status, message } = lastError;
+  if (status === 401 || status === 403)
+    return { text: 'Your Jev key stopped working.', action: 'Fix in settings', tone: 'auth' };
+  if (status === 402) return { text: message, action: 'Fix in settings', tone: 'auth' };
+  if (status === 429) return { text: 'Jev is busy; pages are re-checked as you go.', action: 'Settings', tone: 'busy' };
+  return { text: message, action: 'Settings', tone: 'other' };
 }
 
 /** Stops allowing a site the user allowed from the nudge. @param {Session} session @param {string} host */

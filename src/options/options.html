@@ -6,6 +6,7 @@
     <title>Intent Guard settings</title>
     <link rel="stylesheet" href="options.css" />
     <script type="module" src="options.js"></script>
+    <script type="module" src="exclusions.js"></script>
   </head>
   <body>
     <div class="page">
@@ -117,6 +118,33 @@
             <p id="key-status" class="status" role="status"></p>
           </div>
         </form>
+
+        <section id="exclusions" class="exclusions" aria-labelledby="exclusions-title">
+          <h2 id="exclusions-title">Never send these sites</h2>
+          <p class="intro">
+            Pages on these sites are never described to Jev; they count as neither on nor off task. Mail, banking,
+            government, health and password-manager sites, sign-in pages, and any page with a password field or marked
+            <code>noindex</code> are skipped already. Add anything else here, as a host like <code>example.com</code>.
+          </p>
+          <form id="exclude-form" class="key-row" novalidate>
+            <label for="exclude-host" class="visually-hidden">Site to never send</label>
+            <input
+              id="exclude-host"
+              class="input"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              autocapitalize="off"
+              placeholder="example.com"
+              aria-describedby="exclude-status"
+            />
+            <div class="actions">
+              <button type="submit" class="btn btn-secondary">Add</button>
+            </div>
+          </form>
+          <p id="exclude-status" class="status" role="status"></p>
+          <ul id="exclude-list" class="host-list" aria-label="Sites you added"></ul>
+        </section>
 
         <p class="privacy">
           <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">

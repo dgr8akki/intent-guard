@@ -1,69 +1,72 @@
 /**
  * Service worker: judges pages sent by the content script against the current
  * session's task and keeps the drift clock. The API key and session live in
- * extension storage, out of the page's reach.
+ * extension storage, out of the page's reach. The decisions are in lib/service.js.
  */
 
-import { JevError, createJevClient } from './lib/jev.js';
-import { advance, createJudge, disallow, isAllowed, nudgeAt } from './lib/guard.js';
+import { createJevClient } from './lib/jev.js';
+import { createJudge } from './lib/guard.js';
+import { createService } from './lib/service.js';
 
 // Only on Chrome 140+; a throw here would stop onMessage registering.
 chrome.storage.local.setAccessLevel?.({ accessLevel: 'TRUSTED_CONTEXTS' });
 
 // First install: open settings in a tab to connect a key, rather than leaving it to a 320px popup.
 chrome.runtime.onInstalled.addListener(({ reason }) => {
-  if (reason === 'install') chrome.runtime.openOptionsPage();
+  if (reason !== 'install') return;
+  chrome.runtime.openOptionsPage();
+  injectIntoOpenTabs(); // otherwise tabs open before install never report and the first session seems to do nothing
 });
 
 const jev = createJevClient({
   getKey: async () => (await chrome.storage.local.get('apiKey')).apiKey ?? '',
   getProvider: async () => (await chrome.storage.local.get('provider')).provider,
 });
-const judge = createJudge({ jev });
 
-// Tabs report in parallel; serialize read-modify-write of the session.
-let lock = Promise.resolve();
-function locked(fn) {
-  const run = lock.then(fn);
-  lock = run.catch(() => {});
-  return run;
-}
-
-const getSession = async () => (await chrome.storage.local.get('session')).session ?? null;
-const setSession = (session) => chrome.storage.local.set({ session });
-
-async function check(page) {
-  const session = await getSession();
-  if (!session) return { active: false };
-  const { verdict } = isAllowed(session, page.url) ? { verdict: 'on' } : await judge.judge(session.intent, page);
-  return locked(async () => {
-    const current = await getSession();
-    if (current?.startedAt !== session.startedAt) return { active: false }; // ended or restarted meanwhile
-    const next = advance(current, verdict, page.url, Date.now());
-    await setSession(next);
-    return { active: true, verdict, intent: next.intent, nudgeAt: nudgeAt(next), backUrl: next.lastOnTaskUrl };
-  });
-}
-
-const update = (change) =>
-  locked(async () => {
-    const session = await getSession();
-    if (session) await setSession({ ...session, ...change(session) });
-    return {};
-  });
-
-const handlers = {
-  check: (message) => check(message.page),
-  allow: (message) => update((s) => ({ allowHosts: [...s.allowHosts, new URL(message.url).hostname], offSince: null })),
-  snooze: () => update(() => ({ snoozeUntil: Date.now() + 5 * 60_000 })),
-  disallow: (message) => update((s) => disallow(s, message.host)),
+/** chrome.storage.local one key at a time, which is all the service needs. */
+const storage = {
+  get: async (key) => (await chrome.storage.local.get(key))[key],
+  set: (items) => chrome.storage.local.set(items),
+  remove: (key) => chrome.storage.local.remove(key),
 };
+chrome.action.setBadgeBackgroundColor({ color: '#aa0b56' });
+const service = createService({
+  storage,
+  judge: createJudge({ jev }),
+  badge: (text) => chrome.action.setBadgeText({ text }),
+  inject: injectIntoOpenTabs,
+});
+
+chrome.runtime.onStartup.addListener(() => service.startup());
 
 chrome.runtime.onMessage.addListener((message, _sender, reply) => {
-  const handler = handlers[message?.type];
-  if (!handler) return false;
-  handler(message).then(reply, (error) =>
-    reply({ error: error instanceof JevError ? error.message : 'Check failed.' }),
-  );
+  const result = service.handle(message);
+  if (!result) return false;
+  result.then(reply);
   return true; // reply asynchronously
 });
+
+// The "never send these sites" list changed (settings page or popup): every open page decides afresh.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.excludedHosts) broadcast({ type: 'recheck' });
+});
+
+const httpTabs = () => chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
+
+/** Sends to every http(s) tab; tabs without the content script reject and are skipped. */
+async function broadcast(message) {
+  const tabs = await httpTabs();
+  await Promise.allSettled(tabs.map((tab) => chrome.tabs.sendMessage(tab.id, message)));
+}
+
+/**
+ * Adds the content script to tabs that are already open. Chrome refuses some (its own pages, the
+ * store, tabs it is still restoring); those rejections are expected and dropped. The script itself
+ * is a no-op where it already runs.
+ */
+async function injectIntoOpenTabs() {
+  const tabs = await httpTabs();
+  await Promise.allSettled(
+    tabs.map((tab) => chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content/content.js'] })),
+  );
+}

@@ -4,7 +4,7 @@
  * chip with Test, Replace and Remove.
  */
 
-import { DEFAULT_PROVIDER, PROVIDERS, createJevClient, maskKey } from '../lib/jev.js';
+import { DEFAULT_PROVIDER, JevError, PROVIDERS, createJevClient, maskKey } from '../lib/jev.js';
 
 /** Outbound links carry a ↗ mark and a hidden "(opens in a new tab)". Trusted constants, so innerHTML is fine. */
 const EXTERNAL =
@@ -84,19 +84,33 @@ input.addEventListener('input', () => {
   }
 });
 
-/** Resolves with an error message, or '' when the key works. */
+/**
+ * Checks a key against its provider. Resolves `{ ok: true, note }` when the key can be saved (`note`
+ * is set when the provider was busy and the key only accepted, not exercised), or
+ * `{ ok: false, message, invalid }`; `invalid` is false when the key itself was not at fault.
+ */
 async function test(id, key) {
   try {
-    await createJevClient({ getKey: () => key, getProvider: () => id }).evaluate({
+    const answers = await createJevClient({ getKey: () => key, getProvider: () => id }).evaluate({
       state: 'ping',
       questions: {
         ok: { type: 'choice', instructions: 'Is this a test message?', criteria: { yes: 'Yes', no: 'No' } },
       },
     });
-    return '';
+    // The client checks that every question was answered; a choice answer must also carry its choice.
+    if (typeof answers.ok?.choice !== 'string') {
+      return { ok: false, message: `Unexpected reply from ${PROVIDERS[id].host}.`, invalid: false };
+    }
+    return { ok: true, note: '' };
   } catch (error) {
+    if (!(error instanceof JevError)) {
+      console.error('Intent Guard: key check failed', error);
+      return { ok: false, message: 'Something went wrong while checking the key. Try again.', invalid: false };
+    }
     // A busy provider still accepted the key.
-    return error.busy ? '' : error.message;
+    if (error.busy) return { ok: true, note: 'Key accepted; the provider is busy right now.' };
+    // status 0: offline or timed out, so nothing is known about the key.
+    return { ok: false, message: error.message, invalid: error.status !== 0 };
   }
 }
 
@@ -131,27 +145,33 @@ form.addEventListener('submit', async (event) => {
   input.readOnly = true;
   setBusy(submit, true, 'Checking…');
   setStatus(formStatus, `Checking key with ${PROVIDERS[id].label}…`, 'busy');
-  const error = await test(id, key);
+  const result = await test(id, key);
   input.readOnly = false;
   setBusy(submit, false, 'Connect');
-  if (error) {
-    setInvalid(true);
-    return setStatus(formStatus, error, 'error');
+  if (!result.ok) {
+    setInvalid(result.invalid);
+    return setStatus(formStatus, result.message, 'error');
   }
   apiKey = key;
   provider = id;
   await chrome.storage.local.set({ apiKey, provider });
   setStatus(formStatus, '');
   render();
-  setStatus(connectedStatus, 'Key works. Open the Intent Guard popup to start a session.', 'ok');
+  testButton.focus(); // the form just went away under the submit button; keep keyboard users on the card
+  setStatus(
+    connectedStatus,
+    result.note || 'Key works. Open the Intent Guard popup to start a session.',
+    result.note ? 'neutral' : 'ok',
+  );
 });
 
 testButton.addEventListener('click', async () => {
   setBusy(testButton, true, 'Test');
   setStatus(connectedStatus, 'Checking key…', 'busy');
-  const error = await test(provider, apiKey);
+  const result = await test(provider, apiKey);
   setBusy(testButton, false, 'Test');
-  setStatus(connectedStatus, error || 'Key works.', error ? 'error' : 'ok');
+  if (!result.ok) setStatus(connectedStatus, result.message, 'error');
+  else setStatus(connectedStatus, result.note || 'Key works.', result.note ? 'neutral' : 'ok');
 });
 
 $('replace').addEventListener('click', () => {
@@ -161,6 +181,7 @@ $('replace').addEventListener('click', () => {
 cancel.addEventListener('click', () => {
   setStatus(formStatus, '');
   render();
+  $('replace').focus(); // back where the edit began
 });
 
 $('remove').addEventListener('click', async () => {

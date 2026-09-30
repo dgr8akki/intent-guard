@@ -24,8 +24,9 @@ describe('manifest', () => {
     for (const file of files) assert.ok(existsSync(new URL(file, src)), `missing ${file}`);
   });
 
-  it('asks for storage only and talks only to the two Jev providers', () => {
-    assert.deepEqual(manifest.permissions, ['storage']);
+  it('asks for storage and scripting only and talks only to the two Jev providers', () => {
+    // scripting: to add the content script to tabs that were open before install or session start.
+    assert.deepEqual(manifest.permissions, ['scripting', 'storage']);
     assert.deepEqual(manifest.host_permissions, ['https://ai-gateway.vercel.sh/*', 'https://api.typesafe.ai/*']);
     assert.ok(
       manifest.content_scripts.every((c) => !c.all_frames),

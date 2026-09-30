@@ -4,9 +4,21 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Sensitive pages are never described to Jev: mail, banking, government, health and password-manager sites, sign-in pages, any page with a password field and any page marked `noindex` send only their origin, and count as neither on nor off task. Add your own under _Never send these sites_ in settings, or with _Don't judge this site_ in the popup while a session runs.
+- The first time you start a session, the popup says what leaves the browser and where it goes, with a link to the list of sites that are never sent.
+
 ### Changed
 
 - Intent Guard now requires Chrome 140 or later.
+- Sessions end on their own after 90 minutes without a page being checked, or after 8 hours. After 4 hours the popup asks whether you're still on the task, with Continue and End.
+
+### Fixed
+
+- Tabs that were already open when you installed Intent Guard or started a session are now checked too; before, only pages loaded afterwards reported in. This adds the `scripting` permission.
+- Checking a key is honest: a rate-limited provider reads "Key accepted; the provider is busy right now" instead of "Key works", being offline no longer marks the key wrong, and a reply that does not answer the question, or is not JSON, is rejected instead of saving the key.
+- A provider failure during a session (rejected key, used-up budget, rate limit, offline, unexpected reply) is now visible: the popup says what went wrong under your task with a link to settings, the toolbar icon shows a badge until a check succeeds, and the worker logs it. Before, the popup kept reporting drift while every check failed.
 
 ## [1.6.0] - 2026-09-27
 
