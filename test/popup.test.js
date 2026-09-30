@@ -67,7 +67,7 @@ describe('popup: consent line at Start', () => {
     const consent = document.getElementById('consent');
     assert.equal(consent.hidden, false);
     assert.match(consent.textContent, /title and first lines go to ai-gateway\.vercel\.sh/);
-    assert.match(consent.textContent, /Never on: banking, health, mail/);
+    assert.match(consent.textContent, /Never on banking, health or mail sites\./);
     restore();
   });
 
@@ -224,6 +224,162 @@ describe('popup: stale sessions', () => {
     await tick();
     assert.ok(chrome.sent.some((m) => m.type === 'end'));
     assert.equal(document.getElementById('active').hidden, true);
+    restore();
+  });
+});
+
+describe('popup: the clock tick leaves the allowed list alone', () => {
+  it('keeps focus on a "Stop allowing" button across a tick and only rebuilds rows when hosts change', async () => {
+    const withAllowed = { ...session, allowHosts: ['www.youtube.com', 'news.example'] };
+    const chrome = fakeChrome({ local: { apiKey: 'vck_x', session: withAllowed }, tabs: youtube });
+    const { document, tick, fireIntervals, restore } = await popup(chrome);
+    const button = document.querySelector('#allowed-list button');
+    button.focus();
+    fireIntervals();
+    assert.equal(document.activeElement, button, 'the tick must not replace the focused row');
+    assert.equal(document.querySelector('#allowed-list button'), button);
+
+    // An unrelated session change (drift clock moving) keeps the rows too.
+    await chrome.storage.local.set({ session: { ...withAllowed, offSince: Date.now() } });
+    await tick();
+    assert.equal(document.querySelector('#allowed-list button'), button);
+    assert.equal(document.getElementById('drift-line').hidden, false, 'the clock part still updates');
+
+    // Removing a host rebuilds the list.
+    await chrome.storage.local.set({ session: { ...withAllowed, allowHosts: ['news.example'] } });
+    await tick();
+    const rows = [...document.querySelectorAll('#allowed-list li')];
+    assert.deepEqual(
+      rows.map((r) => r.dataset.host),
+      ['news.example'],
+    );
+    restore();
+  });
+});
+
+describe('popup: key handling', () => {
+  it('shows the setup state without a key and never puts the key in the page', async () => {
+    const chrome = fakeChrome({ local: {}, tabs: youtube });
+    const { document, restore } = await popup(chrome);
+    assert.equal(document.getElementById('setup').hidden, false);
+    assert.equal(document.getElementById('start-form').hidden, true);
+    restore();
+
+    const withKey = fakeChrome({ local: { apiKey: 'vck_secret_value' }, tabs: youtube });
+    const page = await popup(withKey);
+    assert.equal(page.document.getElementById('setup').hidden, true);
+    assert.equal(page.document.getElementById('start-form').hidden, false);
+    assert.ok(!page.document.documentElement.outerHTML.includes('vck_secret_value'));
+    page.restore();
+  });
+});
+
+describe('popup: focus after Start', () => {
+  it('lands on End session instead of body once the form goes away', async () => {
+    const chrome = fakeChrome({ local: { apiKey: 'vck_x' }, tabs: youtube });
+    const { window, document, tick, restore } = await popup(chrome);
+    const intent = document.getElementById('intent');
+    intent.value = 'Book flights';
+    intent.focus();
+    document.getElementById('start-form').dispatchEvent(new window.Event('submit', { cancelable: true }));
+    await tick();
+    assert.equal(document.activeElement.id, 'end');
+    restore();
+  });
+});
+
+describe('popup: Start button', () => {
+  it('tells assistive tech that Enter starts, with no decorative keycap', async () => {
+    const { document, restore } = await popup(fakeChrome({ local: { apiKey: 'vck_x' }, tabs: youtube }));
+    const start = document.querySelector('#start-form button[type="submit"]');
+    assert.equal(start.querySelector('.keycap'), null);
+    assert.match(start.textContent.replace(/\s+/g, ' '), /Start \(press Enter to start\)/);
+    assert.equal(start.querySelector('[aria-hidden="true"]'), null);
+    restore();
+  });
+});
+
+describe('popup: small a11y details', () => {
+  const HOUR = 3_600_000;
+
+  it('exposes the elapsed time as a <time> with the spelled-out duration for assistive tech', async () => {
+    const chrome = fakeChrome({
+      local: { apiKey: 'vck_x', session: { ...session, startedAt: Date.now() - (HOUR + 5 * 60_000) } },
+      tabs: youtube,
+    });
+    const { document, restore } = await popup(chrome);
+    const time = document.querySelector('#elapsed time');
+    assert.ok(time, 'a <time> element');
+    assert.equal(time.getAttribute('datetime'), 'PT1H5M');
+    assert.equal(
+      document.getElementById('elapsed').getAttribute('aria-label'),
+      null,
+      'no aria-label on a generic span',
+    );
+    assert.match(document.querySelector('#elapsed .visually-hidden').textContent, /1 hour 5 minutes in session/);
+    restore();
+  });
+
+  it('lists allowed hosts in full, wrapping instead of truncating', async () => {
+    const host = 'a-very-long-subdomain-name.some-long-company-domain.example';
+    const chrome = fakeChrome({
+      local: { apiKey: 'vck_x', session: { ...session, allowHosts: [host] } },
+      tabs: youtube,
+    });
+    const { document, restore } = await popup(chrome);
+    const code = document.querySelector('#allowed-list code');
+    assert.equal(code.textContent, host);
+    assert.equal(code.getAttribute('title'), null, 'no tooltip that keyboard and touch users cannot reach');
+    restore();
+  });
+
+  it('grows the task field with its content', async () => {
+    const chrome = fakeChrome({ local: { apiKey: 'vck_x' }, tabs: youtube });
+    const { window, document, restore } = await popup(chrome);
+    const intent = document.getElementById('intent');
+    Object.defineProperty(intent, 'scrollHeight', { value: 96 }); // jsdom has no layout
+    intent.value = 'A task long enough to need three lines in the field';
+    intent.dispatchEvent(new window.Event('input'));
+    assert.equal(intent.style.height, '96px');
+    restore();
+  });
+});
+
+describe('popup: interactions', () => {
+  it('Enter in the task field submits the form', async () => {
+    const chrome = fakeChrome({ local: { apiKey: 'vck_x' }, tabs: youtube });
+    const { window, document, tick, restore } = await popup(chrome);
+    const intent = document.getElementById('intent');
+    intent.value = 'Book flights';
+    intent.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    await tick();
+    assert.ok(chrome.sent.some((m) => m.type === 'start' && m.session.intent === 'Book flights'));
+    assert.equal(document.getElementById('active').hidden, false);
+    restore();
+  });
+
+  it('the drift line ticks with the clock', async () => {
+    const off = { ...session, offSince: Date.now() - 30_000 };
+    const chrome = fakeChrome({ local: { apiKey: 'vck_x', session: off }, tabs: youtube });
+    const { document, fireIntervals, restore } = await popup(chrome);
+    assert.match(document.getElementById('drift-text').textContent, /under a minute/);
+    off.offSince = Date.now() - 3 * 60_000; // time passes
+    fireIntervals();
+    assert.match(document.getElementById('drift-text').textContent, /Off task for 3 min/);
+    assert.match(document.getElementById('drift-detail').textContent, /nudge due/);
+    restore();
+  });
+
+  it('stopping an allowed site asks the worker and re-checks the active tab', async () => {
+    const chrome = fakeChrome({
+      local: { apiKey: 'vck_x', session: { ...session, allowHosts: ['youtube.com'] } },
+      tabs: youtube,
+    });
+    const { document, tick, restore } = await popup(chrome);
+    document.querySelector('#allowed-list button').click();
+    await tick();
+    assert.ok(chrome.sent.some((m) => m.type === 'disallow' && m.host === 'youtube.com'));
+    assert.ok(chrome.tabMessages.some((m) => m.id === 7 && m.message.type === 'recheck'));
     restore();
   });
 });

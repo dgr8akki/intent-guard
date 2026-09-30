@@ -70,15 +70,16 @@ Once connected, the key shows only as `vck_…a1b2` with **Test**, **Replace** a
 
 ## Privacy and permissions
 
-| Permission                          | Why                                                                                          |
-| ----------------------------------- | -------------------------------------------------------------------------------------------- |
-| Content script on all http(s) pages | Reads the page title and opening text during a session; shows the nudge                      |
-| `https://api.typesafe.ai/*`         | Sends the task and page summary to Jev, if you picked TypeSafe                               |
-| `https://ai-gateway.vercel.sh/*`    | Sends the task and page summary to Jev, if you picked Vercel                                 |
-| `storage`                           | Keeps your API key and session in this browser                                               |
-| `scripting`                         | Adds the page checker to tabs that were already open when you installed or started a session |
+| Permission                          | Why                                                                                                                                                   |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Content script on all http(s) pages | Reads the page heading and description during a session; shows the nudge. Plain-http pages are included so intranet and local tools count as work too |
+| `https://api.typesafe.ai/*`         | Sends the task and page summary to Jev, if you picked TypeSafe                                                                                        |
+| `https://ai-gateway.vercel.sh/*`    | Sends the task and page summary to Jev, if you picked Vercel                                                                                          |
+| `storage`                           | Keeps your API key and session in this browser                                                                                                        |
+| `scripting`                         | Adds the page checker to tabs that were already open when you installed or started a session                                                          |
+| Host access on all http(s) pages    | Lets the extension see which tabs are open pages and reach them; the content script already runs there, so Chrome shows the same warning              |
 
-For each page, only the origin and path, the title and up to 800 characters of heading and opening text are sent, either to TypeSafe directly or to Vercel AI Gateway, which forwards them to TypeSafe. Query strings, URL fragments, form contents and embedded frames are never sent. Mail, banking, government, health and password-manager sites, sign-in pages, and any page with a password field or marked `noindex` are never described at all, and you can add your own sites under **Never send these sites** in settings (or **Don't judge this site** in the popup). See [PRIVACY.md](PRIVACY.md).
+For each page, only the origin and path, the title and its heading and description (or up to 300 characters of opening text when it has neither) are sent, either to TypeSafe directly or to Vercel AI Gateway, which forwards them to TypeSafe. Query strings, URL fragments, form contents and embedded frames are never sent. Mail, banking, government, health and password-manager sites, sign-in pages, and any page with a password field or marked `noindex` are never described at all, and you can add your own sites under **Never send these sites** in settings (or **Don't judge this site** in the popup). See [PRIVACY.md](PRIVACY.md).
 
 ## Development
 
@@ -147,4 +148,4 @@ evals/                     Live evaluation against Jev
 
 [MIT](LICENSE) © 2026 Aakash Pahuja
 
-The settings page, popup and nudge card bundle [Source Serif 4](https://github.com/adobe-fonts/source-serif) © Adobe, under the [SIL Open Font License 1.1](src/fonts/OFL.txt).
+The settings page and popup bundle [Source Serif 4](https://github.com/adobe-fonts/source-serif) © Adobe, under the [SIL Open Font License 1.1](src/fonts/OFL.txt).

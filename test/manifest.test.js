@@ -1,50 +1,37 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
-const src = new URL('../src/', import.meta.url);
+import { describeSharedManifest } from './manifest-shared.js';
+
+const root = new URL('../', import.meta.url);
+const src = new URL('src/', root);
 const manifest = JSON.parse(readFileSync(new URL('manifest.json', src), 'utf8'));
-const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
 describe('manifest', () => {
-  it('is Manifest V3 with the package version', () => {
-    assert.equal(manifest.manifest_version, 3);
-    assert.equal(manifest.version, pkg.version);
-  });
+  describeSharedManifest(root);
 
-  it('references only files that exist', () => {
-    const files = [
-      manifest.background.service_worker,
-      manifest.action.default_popup,
-      manifest.options_ui.page,
-      ...manifest.content_scripts.flatMap((c) => [...c.js, ...(c.css ?? [])]),
-      ...Object.values(manifest.icons),
-      ...Object.values(manifest.action.default_icon),
-    ];
-    for (const file of files) assert.ok(existsSync(new URL(file, src)), `missing ${file}`);
-  });
-
-  it('asks for storage and scripting only and talks only to the two Jev providers', () => {
+  it('asks for storage and scripting only, and for the hosts it already runs on', () => {
     // scripting: to add the content script to tabs that were open before install or session start.
     assert.deepEqual(manifest.permissions, ['scripting', 'storage']);
-    assert.deepEqual(manifest.host_permissions, ['https://ai-gateway.vercel.sh/*', 'https://api.typesafe.ai/*']);
+    // Host permissions mirror the content script's matches. Without them tabs.query({ url }) returns
+    // nothing and scripting.executeScript is refused, so open tabs could never be reached; the install
+    // warning is already the broad one because of the content script, so this adds no new prompt.
+    const matches = manifest.content_scripts.flatMap((c) => c.matches);
+    assert.deepEqual(manifest.host_permissions, [
+      ...matches,
+      'https://ai-gateway.vercel.sh/*',
+      'https://api.typesafe.ai/*',
+    ]);
     assert.ok(
       manifest.content_scripts.every((c) => !c.all_frames),
       'top frames only',
     );
   });
 
-  it('exposes only the nudge card font to web pages', () => {
-    assert.deepEqual(manifest.web_accessible_resources, [
-      { resources: ['fonts/source-serif-4.woff2'], matches: ['http://*/*', 'https://*/*'] },
-    ]);
-    for (const file of manifest.web_accessible_resources[0].resources) {
-      assert.ok(existsSync(new URL(file, src)), `missing ${file}`);
-    }
-  });
-
-  it('keeps the store description within 132 characters', () => {
-    assert.ok(manifest.description.length <= 132, `${manifest.description.length} chars`);
+  it('exposes nothing to web pages', () => {
+    // A web-accessible file lets any site detect the extension by loading it; the nudge uses Georgia instead.
+    assert.equal(manifest.web_accessible_resources, undefined);
   });
 });
 

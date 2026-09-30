@@ -14,11 +14,14 @@ const count = $('count');
 /** The counter stays out of the way until the task gets long. */
 const COUNT_FROM = 160;
 
+// The popup only needs to know that a key exists; the key itself stays on the settings page and in the worker.
 const [
-  { apiKey = '', session = null, excludedHosts = [], provider, consentAcknowledgedAt = 0, lastError = null },
+  connected,
+  { session = null, excludedHosts = [], provider, consentAcknowledgedAt = 0, lastError = null },
   currentHost,
 ] = await Promise.all([
-  chrome.storage.local.get(['apiKey', 'session', 'excludedHosts', 'provider', 'consentAcknowledgedAt', 'lastError']),
+  chrome.storage.local.get('apiKey').then(({ apiKey }) => Boolean(apiKey)),
+  chrome.storage.local.get(['session', 'excludedHosts', 'provider', 'consentAcknowledgedAt', 'lastError']),
   hostOfActiveTab(),
 ]);
 let current = session;
@@ -39,7 +42,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (changes.session) current = changes.session.newValue ?? null;
   if (current || wasActive) render(current);
 });
-setInterval(() => current && render(current), 15_000);
+setInterval(() => current && renderClock(current), 15_000); // only the clock: rows and focus stay put
 
 const openSettings = () => chrome.runtime.openOptionsPage();
 $('settings').addEventListener('click', openSettings);
@@ -80,6 +83,9 @@ intentInput.addEventListener('keydown', (event) => {
 });
 intentInput.addEventListener('input', () => {
   if (intentInput.value.includes('\n')) intentInput.value = intentInput.value.replace(/\n/g, ' ');
+  // Two rows with resize: none hid the start of a long task; grow with the content instead.
+  intentInput.style.height = 'auto';
+  intentInput.style.height = `${intentInput.scrollHeight}px`;
   const n = intentInput.value.length;
   count.textContent = n < COUNT_FROM ? '' : n >= 200 ? '200 / 200 · limit' : `${n} / 200`;
   count.classList.toggle('at-limit', n >= 200);
@@ -94,6 +100,7 @@ startForm.addEventListener('submit', async (event) => {
   await chrome.runtime.sendMessage({ type: 'start', session: next }); // the worker also reaches tabs already open
   current = next;
   render(next);
+  $('end').focus(); // the Start button just vanished under the keyboard user
   await recheckActiveTab();
 });
 
@@ -110,10 +117,10 @@ $('stale-end').addEventListener('click', endSession);
 $('continue').addEventListener('click', () => chrome.runtime.sendMessage({ type: 'continue' }));
 
 function render(session) {
-  setup.hidden = Boolean(apiKey);
-  startForm.hidden = !apiKey || Boolean(session);
-  active.hidden = !apiKey || !session;
-  $('section').textContent = !apiKey ? 'Setup' : session ? 'In session' : 'New session';
+  setup.hidden = connected;
+  startForm.hidden = !connected || Boolean(session);
+  active.hidden = !connected || !session;
+  $('section').textContent = !connected ? 'Setup' : session ? 'In session' : 'New session';
   $('consent').hidden = consented;
   if (!startForm.hidden) intentInput.focus();
   if (active.hidden) return;
@@ -136,12 +143,40 @@ function render(session) {
   $('error-text').textContent = problem?.text ?? '';
   $('error-action').textContent = problem?.action ?? '';
 
+  renderClock(session);
+
+  // Rows are rebuilt only when the hosts change, so a focused "Stop allowing" button survives the clock tick.
+  const list = $('allowed-list');
+  const shown = [...list.children].map((row) => row.dataset.host);
+  if (shown.join('\n') !== session.allowHosts.join('\n')) list.replaceChildren(...session.allowHosts.map(allowedRow));
+  $('allowed').hidden = !session.allowHosts.length;
+
+  const skipped = Boolean(currentHost) && isExcluded(currentHost, excluded);
+  $('skip').hidden = !currentHost || skipped;
+  $('skip').setAttribute('aria-label', `Don’t judge ${currentHost}`);
+  $('skip-note').hidden = !skipped;
+  $('skip-host').textContent = currentHost;
+}
+
+/** The parts that move with time: elapsed, the drift line and the meta line. Safe to call every tick. */
+function renderClock(session) {
   const now = Date.now();
   const since = new Date(session.startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   const elapsed = formatElapsed(now - session.startedAt);
   $('elapsed-value').textContent = elapsed.value;
   $('elapsed-unit').textContent = elapsed.unit;
-  $('elapsed').setAttribute('aria-label', `${elapsed.value} ${elapsed.unit === 'hr' ? 'hours' : 'minutes'} in session`);
+  // "1:05 hr" reads badly aloud; the <time> carries the duration and hidden text spells it out.
+  const minutes = Math.max(0, Math.floor((now - session.startedAt) / 60_000));
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  $('elapsed-time').setAttribute('datetime', `PT${hours ? `${hours}H` : ''}${rest || !hours ? `${rest}M` : ''}`);
+  const spoken = [
+    hours && `${hours} hour${hours === 1 ? '' : 's'}`,
+    (rest || !hours) && `${rest} minute${rest === 1 ? '' : 's'}`,
+  ]
+    .filter(Boolean)
+    .join(' ');
+  $('elapsed-text').textContent = `${spoken} in session`;
 
   const drift = driftLine(session, now);
   $('drift-line').hidden = !drift;
@@ -153,15 +188,6 @@ function render(session) {
   const sites = session.allowHosts.length;
   const allowed = sites ? ` · ${sites} site${sites === 1 ? '' : 's'} allowed` : '';
   $('active-meta').textContent = `Since ${since} · nudge after ${session.driftMinutes} min${allowed}`;
-
-  $('allowed').hidden = !sites;
-  $('allowed-list').replaceChildren(...session.allowHosts.map(allowedRow));
-
-  const skipped = Boolean(currentHost) && isExcluded(currentHost, excluded);
-  $('skip').hidden = !currentHost || skipped;
-  $('skip').setAttribute('aria-label', `Don’t judge ${currentHost}`);
-  $('skip-note').hidden = !skipped;
-  $('skip-host').textContent = currentHost;
 }
 
 /** The host of the tab the popup opened over, or '' for pages the extension can't run on. */
@@ -178,7 +204,8 @@ async function hostOfActiveTab() {
 /** One allowed site with a way to stop allowing it; the service worker owns session writes. */
 function allowedRow(host) {
   const row = document.createElement('li');
-  const name = Object.assign(document.createElement('code'), { textContent: host, title: host });
+  row.dataset.host = host;
+  const name = Object.assign(document.createElement('code'), { textContent: host });
   const remove = Object.assign(document.createElement('button'), { type: 'button', className: 'btn btn-icon' });
   remove.setAttribute('aria-label', `Stop allowing ${host}`);
   remove.innerHTML =

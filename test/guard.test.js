@@ -15,6 +15,7 @@ import {
   isAllowed,
   newSession,
   nudgeAt,
+  siteOf,
   toVerdict,
 } from '../src/lib/guard.js';
 import { fakeJev, relevance } from './helpers.js';
@@ -73,10 +74,27 @@ describe('drift clock', () => {
     assert.equal(nudgeAt(s), 10 * 60_000);
   });
 
-  it('matches allowed sites by host', () => {
-    const s = { ...start, allowHosts: ['www.youtube.com'] };
+  it('allows a site with all its subdomains, not lookalikes', () => {
+    const s = { ...start, allowHosts: ['youtube.com'] };
     assert.ok(isAllowed(s, 'https://www.youtube.com/watch'));
-    assert.ok(!isAllowed(s, 'https://youtube.com/watch'));
+    assert.ok(isAllowed(s, 'https://m.youtube.com/watch'));
+    assert.ok(isAllowed(s, 'https://youtube.com/watch'));
+    assert.ok(!isAllowed(s, 'https://youtube.com.evil.example/'));
+    assert.ok(!isAllowed(s, 'https://notyoutube.com/'));
+    // Sessions saved before this stored the exact host; they still match their own subdomain tree.
+    const old = { ...start, allowHosts: ['www.youtube.com'] };
+    assert.ok(isAllowed(old, 'https://www.youtube.com/watch'));
+    assert.ok(isAllowed(old, 'https://m.youtube.com/watch'));
+  });
+
+  it('names a site by its registrable domain', () => {
+    assert.equal(siteOf('www.youtube.com'), 'youtube.com');
+    assert.equal(siteOf('m.youtube.com'), 'youtube.com');
+    assert.equal(siteOf('youtube.com'), 'youtube.com');
+    assert.equal(siteOf('www.bbc.co.uk'), 'bbc.co.uk');
+    assert.equal(siteOf('news.example.com.au'), 'example.com.au');
+    assert.equal(siteOf('localhost'), 'localhost');
+    assert.equal(siteOf('192.168.0.1'), '192.168.0.1');
   });
 });
 
@@ -110,6 +128,55 @@ describe('createJudge', () => {
     await assert.rejects(judge.judge('a', page), /boom/);
     fail = false;
     assert.equal((await judge.judge('a', page)).verdict, 'on');
+  });
+});
+
+describe('createJudge with a store', () => {
+  /** chrome.storage.session, one key at a time, in memory. */
+  const fakeStore = () => {
+    const data = new Map();
+    return {
+      data,
+      get: async (key) => data.get(key),
+      set: async (items) => {
+        for (const [key, value] of Object.entries(items)) data.set(key, value);
+      },
+    };
+  };
+
+  it('remembers verdicts across a worker restart', async () => {
+    const store = fakeStore();
+    const jev = fakeJev(() => relevance(0, 0, 0, 1));
+    await createJudge({ jev, store }).judge('Book flights', page);
+    assert.equal(jev.calls.length, 1);
+    // MV3 stops an idle worker after about 30 s; a new module instance must find the old verdicts.
+    const again = await createJudge({ jev, store }).judge('Book flights', page);
+    assert.equal(again.verdict, 'on');
+    assert.equal(jev.calls.length, 1, 'no second request');
+  });
+
+  it('keeps the drop-oldest cap in the stored copy', async () => {
+    const store = fakeStore();
+    const judge = createJudge({ jev: fakeJev(() => relevance(0, 0, 0, 1)), store, max: 2 });
+    await judge.judge('a', page);
+    await judge.judge('b', page);
+    await judge.judge('c', page);
+    const saved = Object.keys(store.data.get('judgeCache'));
+    assert.equal(saved.length, 2);
+    assert.ok(!saved[0].startsWith('a\n'), 'the oldest entry is gone');
+  });
+
+  it('starts empty and keeps working when the store is unavailable', async () => {
+    const jev = fakeJev(() => relevance(0, 0, 0, 1));
+    const broken = {
+      get: async () => {
+        throw new Error('no session storage');
+      },
+      set: async () => {
+        throw new Error('no');
+      },
+    };
+    assert.equal((await createJudge({ jev, store: broken }).judge('a', page)).verdict, 'on');
   });
 });
 

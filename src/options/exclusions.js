@@ -49,10 +49,13 @@ function row(host) {
   return item;
 }
 
+/** Same tones and marks as the key form's status lines. */
 function setStatus(text, tone) {
-  status.classList.remove('status-ok', 'status-error', 'status-neutral');
-  status.textContent = text;
-  if (text) status.classList.add(`status-${tone}`);
+  status.replaceChildren();
+  if (!text) return delete status.dataset.tone;
+  status.dataset.tone = tone;
+  const icon = document.querySelector(`template[data-icon="${tone}"]`)?.content.cloneNode(true);
+  status.append(...[icon].filter(Boolean), Object.assign(document.createElement('span'), { textContent: text }));
 }
 
 input.addEventListener('input', () => {

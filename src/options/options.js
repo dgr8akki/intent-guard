@@ -2,6 +2,19 @@
  * Settings page, opened on install: picks the Jev provider and connects its
  * key. A saved key is never put back into the input; it shows as a masked
  * chip with Test, Replace and Remove.
+ *
+ * The page supplies the look, this file the behaviour. It expects these ids:
+ * key-form (with radios named `provider`), api-key, cancel, connected, test,
+ * replace, remove, key-status, connected-status, steps, host, provider-label,
+ * masked. Optional: kicker (gets Welcome / Replace your key / Settings).
+ * `<body data-next="…">` is appended to "Key works." after connecting,
+ * `<body data-app="…">` (else the page title) labels console errors, and
+ * `body[data-state]` is welcome, replace or connected for CSS to hook into.
+ * Status lines get `data-tone` (busy, ok, error, neutral); a page can either
+ * style the tone in CSS alone or provide `<template data-icon="ok">` elements
+ * whose content is cloned in front of the text, so no status relies on colour.
+ * Focus moves with the UI: to Test after Connect, to Replace after Cancel and
+ * to the key field after Remove, so keyboard users are never left on <body>.
  */
 
 import { DEFAULT_PROVIDER, JevError, PROVIDERS, createJevClient, maskKey } from '../lib/jev.js';
@@ -19,16 +32,6 @@ const STEPS = {
   typesafe: [`${link(PROVIDERS.typesafe.keysUrl, 'Create an API key')} in the TypeSafe console.`, 'Paste it here.'],
 };
 
-/** Status lines never rely on colour alone: each tone has its own mark. */
-const ICONS = {
-  busy: '<span class="spinner" aria-hidden="true"></span>',
-  ok: '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor" fill-opacity=".18" stroke="currentColor" stroke-width="1.3"/><path d="M5 8.3l2 2 4-4.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  error:
-    '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6l6.8 12H1.2z" fill="currentColor" fill-opacity=".18" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6v3.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.6" r=".9" fill="currentColor"/></svg>',
-  neutral:
-    '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor" fill-opacity=".14" stroke="currentColor" stroke-width="1.3"/><path d="M5 8h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
-};
-
 const $ = (id) => document.getElementById(id);
 const form = $('key-form');
 const input = $('api-key');
@@ -39,6 +42,12 @@ const testButton = $('test');
 const formStatus = $('key-status');
 const connectedStatus = $('connected-status');
 const radios = [...form.elements.provider];
+
+/** The page's own mark for a tone, if it provides one. */
+const icon = (tone) => document.querySelector(`template[data-icon="${tone}"]`)?.content.cloneNode(true);
+
+const APP = document.body.dataset.app || document.title;
+const BUSY_MESSAGE = 'Key accepted; the provider is busy right now.';
 
 let { apiKey = '', provider = DEFAULT_PROVIDER } = await chrome.storage.local.get(['apiKey', 'provider']);
 if (!PROVIDERS[provider]) provider = DEFAULT_PROVIDER;
@@ -58,8 +67,11 @@ function render(editing = false) {
   form.hidden = !showForm;
   connected.hidden = showForm;
   cancel.hidden = !apiKey;
-  // Same page on install and later; only the kicker changes.
-  $('kicker').textContent = !showForm ? 'Settings' : apiKey ? 'Replace your key' : 'Welcome';
+  // Same page on install and later; only the heading changes.
+  const state = !showForm ? 'connected' : apiKey ? 'replace' : 'welcome';
+  document.body.dataset.state = state;
+  const kicker = $('kicker');
+  if (kicker) kicker.textContent = { connected: 'Settings', replace: 'Replace your key', welcome: 'Welcome' }[state];
   input.value = '';
   setInvalid(false);
   radios.forEach((radio) => (radio.checked = radio.value === provider));
@@ -85,11 +97,14 @@ input.addEventListener('input', () => {
 });
 
 /**
- * Checks a key against its provider. Resolves `{ ok: true, note }` when the key can be saved (`note`
- * is set when the provider was busy and the key only accepted, not exercised), or
- * `{ ok: false, message, invalid }`; `invalid` is false when the key itself was not at fault.
+ * Checks a key with one throwaway question.
+ *
+ * @returns {Promise<{ ok: true, busy: boolean } | { ok: false, message: string, invalid: boolean }>}
+ *   `busy`: a rate limit, which means the provider checked the key before counting the request.
+ *   `invalid`: whether the key itself is what is wrong; offline, a garbled reply or a 5xx say nothing about it.
  */
 async function test(id, key) {
+  const { host } = PROVIDERS[id];
   try {
     const answers = await createJevClient({ getKey: () => key, getProvider: () => id }).evaluate({
       state: 'ping',
@@ -97,31 +112,35 @@ async function test(id, key) {
         ok: { type: 'choice', instructions: 'Is this a test message?', criteria: { yes: 'Yes', no: 'No' } },
       },
     });
-    // The client checks that every question was answered; a choice answer must also carry its choice.
+    // The client checks that every question got an answer; a key check also needs that answer to be a pick.
     if (typeof answers.ok?.choice !== 'string') {
-      return { ok: false, message: `Unexpected reply from ${PROVIDERS[id].host}.`, invalid: false };
+      return { ok: false, message: `Unexpected reply from ${host}.`, invalid: false };
     }
-    return { ok: true, note: '' };
+    return { ok: true, busy: false };
   } catch (error) {
     if (!(error instanceof JevError)) {
-      console.error('Intent Guard: key check failed', error);
+      // Our bug, not a provider verdict: log it so it can be diagnosed, and say so plainly.
+      console.error(`${APP}: key check failed`, error);
       return { ok: false, message: 'Something went wrong while checking the key. Try again.', invalid: false };
     }
-    // A busy provider still accepted the key.
-    if (error.busy) return { ok: true, note: 'Key accepted; the provider is busy right now.' };
-    // status 0: offline or timed out, so nothing is known about the key.
-    return { ok: false, message: error.message, invalid: error.status !== 0 };
+    if (error.busy) return { ok: true, busy: true };
+    // 401 covers TypeSafe's 403 authentication_error too (the client maps it); a plain 403 is still a verdict.
+    return { ok: false, message: error.message, invalid: error.status === 401 || error.status === 403 };
   }
 }
 
+/** Shows a passing result: "Key works." plus the page's next step (Connect only), or the busy note. */
+function showPass(el, { busy }, next = '') {
+  if (busy) return setStatus(el, BUSY_MESSAGE, 'neutral');
+  setStatus(el, ['Key works.', next].filter(Boolean).join(' '), 'ok');
+}
+
 /** @param {'busy' | 'ok' | 'error' | 'neutral'} [tone] */
-function setStatus(el, text, tone) {
-  el.classList.remove('status-busy', 'status-ok', 'status-error', 'status-neutral');
+function setStatus(el, text, tone = 'neutral') {
   el.replaceChildren();
-  if (!text) return;
-  el.classList.add(`status-${tone ?? 'neutral'}`);
-  el.innerHTML = ICONS[tone ?? 'neutral'];
-  el.append(Object.assign(document.createElement('span'), { textContent: text }));
+  if (!text) return delete el.dataset.tone;
+  el.dataset.tone = tone;
+  el.append(...[icon(tone)].filter(Boolean), Object.assign(document.createElement('span'), { textContent: text }));
 }
 
 function setInvalid(invalid) {
@@ -132,8 +151,7 @@ function setInvalid(invalid) {
 function setBusy(button, busy, label) {
   button.disabled = busy;
   button.setAttribute('aria-busy', String(busy));
-  button.innerHTML = busy ? ICONS.busy : '';
-  button.append(label);
+  button.replaceChildren(...[busy && icon('busy')].filter(Boolean), label);
 }
 
 form.addEventListener('submit', async (event) => {
@@ -158,11 +176,7 @@ form.addEventListener('submit', async (event) => {
   setStatus(formStatus, '');
   render();
   testButton.focus(); // the form just went away under the submit button; keep keyboard users on the card
-  setStatus(
-    connectedStatus,
-    result.note || 'Key works. Open the Intent Guard popup to start a session.',
-    result.note ? 'neutral' : 'ok',
-  );
+  showPass(connectedStatus, result, document.body.dataset.next);
 });
 
 testButton.addEventListener('click', async () => {
@@ -170,8 +184,8 @@ testButton.addEventListener('click', async () => {
   setStatus(connectedStatus, 'Checking key…', 'busy');
   const result = await test(provider, apiKey);
   setBusy(testButton, false, 'Test');
-  if (!result.ok) setStatus(connectedStatus, result.message, 'error');
-  else setStatus(connectedStatus, result.note || 'Key works.', result.note ? 'neutral' : 'ok');
+  if (result.ok) showPass(connectedStatus, result);
+  else setStatus(connectedStatus, result.message, 'error');
 });
 
 $('replace').addEventListener('click', () => {

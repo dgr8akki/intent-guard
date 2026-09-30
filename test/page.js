@@ -83,7 +83,7 @@ let loads = 0;
  * @param {string} html Path of the page, relative to test/.
  * @param {string} script Path of its module, relative to test/.
  * @param {ReturnType<typeof fakeChrome>} chrome
- * @returns {Promise<{ window: Window, document: Document, tick: () => Promise<void>, restore: () => void }>}
+ * @returns {Promise<{ window: Window, document: Document, tick: () => Promise<void>, fireIntervals: () => void, restore: () => void }>}
  */
 export async function loadPage(html, script, chrome) {
   const markup = readFileSync(new URL(html, import.meta.url), 'utf8')
@@ -91,7 +91,8 @@ export async function loadPage(html, script, chrome) {
     .replace(/<link[^>]*>/g, '');
   const { window } = new JSDOM(markup, { url: 'chrome-extension://intent-guard/page.html', pretendToBeVisual: true });
 
-  // The module reads these as globals. Intervals must not hold the test process open.
+  // The module reads these as globals. Intervals must not hold the test process open; tests fire them by hand.
+  const intervals = [];
   const names = ['window', 'document', 'chrome', 'HTMLElement', 'Event', 'KeyboardEvent', 'setInterval'];
   const previous = Object.fromEntries(names.map((name) => [name, globalThis[name]]));
   Object.assign(globalThis, {
@@ -101,7 +102,10 @@ export async function loadPage(html, script, chrome) {
     HTMLElement: window.HTMLElement,
     Event: window.Event,
     KeyboardEvent: window.KeyboardEvent,
-    setInterval: (fn, ms) => previous.setInterval(fn, ms).unref(),
+    setInterval: (fn, ms) => {
+      intervals.push(fn);
+      return previous.setInterval(fn, ms).unref();
+    },
   });
   const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
   try {
@@ -115,6 +119,8 @@ export async function loadPage(html, script, chrome) {
     window,
     document: window.document,
     tick,
+    /** Runs every interval callback the page registered, as the clock would. */
+    fireIntervals: () => intervals.forEach((fn) => fn()),
     restore: () => {
       Object.assign(globalThis, previous);
       window.close();

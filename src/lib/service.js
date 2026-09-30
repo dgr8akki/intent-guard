@@ -7,7 +7,7 @@
  */
 
 import { isExcluded } from './exclusions.js';
-import { advance, disallow, expiryReason, isAllowed, nudgeAt } from './guard.js';
+import { advance, disallow, expiryReason, isAllowed, nudgeAt, siteOf } from './guard.js';
 import { JevError } from './jev.js';
 
 /**
@@ -74,6 +74,8 @@ export function createService({
     if (isAllowed(session, page.url)) return 'on';
     // An excluded page sends its origin and nothing else. It is neither on nor off task, and Jev never sees it.
     if (!page.title && !page.text) return 'unclear';
+    // A host the model already put on task this session stays on task: fewer requests, less text sent.
+    if ((session.onHosts ?? []).includes(new URL(page.url).hostname)) return 'on';
     let verdict;
     try {
       ({ verdict } = await judge.judge(session.intent, page));
@@ -117,9 +119,23 @@ export function createService({
     return locked(async () => {
       const current = await getSession();
       if (current?.startedAt !== session.startedAt) return { active: false }; // ended or restarted meanwhile
-      const next = { ...advance(current, verdict, page.url, now()), lastCheckAt: now() };
+      const allowed = isAllowed(current, page.url);
+      const next = { ...advance(current, verdict, page.url, now(), { judged: !allowed }), lastCheckAt: now() };
+      const hostname = new URL(page.url).hostname;
+      if (verdict === 'on' && page.title && !allowed && !(next.onHosts ?? []).includes(hostname)) {
+        next.onHosts = [...(next.onHosts ?? []), hostname];
+      }
       await setSession(next);
-      return { active: true, verdict, intent: next.intent, nudgeAt: nudgeAt(next), backUrl: next.lastOnTaskUrl };
+      return {
+        active: true,
+        verdict,
+        intent: next.intent,
+        nudgeAt: nudgeAt(next),
+        backUrl: next.lastOnTaskUrl,
+        // Lets the page tell one off-task stretch from the next, so it nudges once per stretch.
+        offSince: next.offSince,
+        driftMinutes: next.driftMinutes,
+      };
     });
   }
 
@@ -132,7 +148,8 @@ export function createService({
 
   const handlers = {
     check,
-    allow: ({ url }) => update((s) => ({ allowHosts: [...s.allowHosts, new URL(url).hostname], offSince: null })),
+    allow: ({ url }) =>
+      update((s) => ({ allowHosts: [...s.allowHosts, siteOf(new URL(url).hostname)], offSince: null })),
     snooze: () => update(() => ({ snoozeUntil: now() + 5 * 60_000 })),
     disallow: ({ host }) => update((s) => disallow(s, host)),
     continue: () => update(() => ({ confirmedAt: now(), lastCheckAt: now() })),

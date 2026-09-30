@@ -26,7 +26,7 @@
   --field: #eae9e9; /* input fill */
   --ink: #201e1d;
   --muted: #5c5959; /* 6.2:1 on --bg */
-  --line: #8a8686; /* control borders, 3.2:1 */
+  --line: #858181; /* control borders, 3.1:1 on the field fill as well as the page */
   --rule: #201e1d; /* masthead rules */
   --accent: #00739a; /* 4.8:1 with --on-accent */
   --accent-hover: #006786;
@@ -176,7 +176,7 @@ code {
 }
 
 .kicker {
-  margin: clamp(36px, 6vw, 72px) 0 14px;
+  margin: clamp(20px, 2.5vw, 40px) 0 10px;
   font-size: 13px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -184,8 +184,9 @@ code {
 }
 
 h1 {
-  max-width: 17ch;
-  font-size: clamp(32px, 4.4vw, 54px);
+  /* Wide enough for two or three lines on a laptop, so the connection card stays above the fold at 1152 x 556. */
+  max-width: 32ch;
+  font-size: clamp(26px, 3vw, 40px);
   font-weight: 600;
   line-height: 1.06;
   letter-spacing: -0.02em;
@@ -194,7 +195,11 @@ h1 {
 
 main {
   max-width: var(--column);
-  margin-top: clamp(40px, 5.5vw, 64px);
+}
+
+/* The headline used to sit outside main; the gap below it is what main's top margin used to be. */
+h1 {
+  margin: 0 0 clamp(20px, 2.5vw, 36px);
 }
 
 h2 {
@@ -207,7 +212,7 @@ h2 {
 
 .intro {
   max-width: 54ch;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
   font-size: 16px;
   line-height: 1.6;
   text-wrap: pretty;
@@ -524,19 +529,19 @@ h2 {
   margin-top: 4px;
 }
 
-.status-busy {
+.status[data-tone='busy'] {
   color: var(--muted);
 }
 
-.status-ok {
+.status[data-tone='ok'] {
   color: var(--success);
 }
 
-.status-error {
+.status[data-tone='error'] {
   color: var(--danger);
 }
 
-.status-neutral {
+.status[data-tone='neutral'] {
   color: var(--ink);
 }
 

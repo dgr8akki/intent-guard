@@ -54,6 +54,8 @@ describe('service: check', () => {
     assert.equal(reply.verdict, 'off');
     assert.equal(reply.active, true);
     assert.equal(reply.nudgeAt, 5000 + 2 * 60_000);
+    assert.equal(reply.offSince, 5000);
+    assert.equal(reply.driftMinutes, 2);
     assert.equal(storage.data.get('session').offSince, 5000);
   });
 
@@ -118,15 +120,64 @@ describe('service: check', () => {
   });
 });
 
+describe('service: where "Back to task" goes', () => {
+  it('points at the last page the model put on task, never an allow-listed one', async () => {
+    const answers = { 'https://flights.example/search': relevance(0, 0, 0.2, 0.8) };
+    const { storage, service } = setup({
+      session: { ...newSession('Book flights', 2, 1000), allowHosts: [] },
+      answer: (body) => answers[/URL: (\S+)/.exec(body.state)[1]] ?? relevance(0.9, 0.1, 0, 0),
+    });
+    await service.handle({
+      type: 'check',
+      page: { url: 'https://flights.example/search', title: 'Flights', text: 'x' },
+    });
+    await service.handle({ type: 'check', page }); // youtube: off
+    await service.handle({ type: 'allow', url: 'https://www.youtube.com/watch?v=1' });
+    await service.handle({ type: 'check', page }); // allowed now
+    assert.equal(storage.data.get('session').lastOnTaskUrl, 'https://flights.example/search');
+    await service.handle({ type: 'disallow', host: 'youtube.com' });
+    const reply = await service.handle({ type: 'check', page });
+    assert.equal(reply.verdict, 'off');
+    assert.equal(reply.backUrl, 'https://flights.example/search', 'not the page being nudged about');
+  });
+});
+
+describe('service: hosts already judged on task', () => {
+  it('does not ask again about a host the model already put on task this session', async () => {
+    const { jev, storage, service } = setup({ answer: () => relevance(0, 0, 0.3, 0.7) });
+    await service.handle({ type: 'check', page: { url: 'https://docs.example/a', title: 'A', text: 'a' } });
+    assert.deepEqual(storage.data.get('session').onHosts, ['docs.example']);
+    const reply = await service.handle({
+      type: 'check',
+      page: { url: 'https://docs.example/b', title: 'B', text: 'b' },
+    });
+    assert.equal(reply.verdict, 'on');
+    assert.equal(jev.calls.length, 1);
+    assert.equal(storage.data.get('session').lastOnTaskUrl, 'https://docs.example/b');
+  });
+
+  it('keeps asking about hosts that were off task or unclear', async () => {
+    const { jev, storage, service } = setup({ answer: () => relevance(0.8, 0.1, 0.1, 0) });
+    await service.handle({ type: 'check', page });
+    await service.handle({ type: 'check', page: { ...page, url: 'https://www.youtube.com/watch' } });
+    assert.equal(jev.calls.length, 2);
+    assert.deepEqual(storage.data.get('session').onHosts, []);
+  });
+});
+
 describe('service: session edits', () => {
   it('allows a site, snoozes and stops allowing', async () => {
     const { storage, service } = setup({ session: { ...newSession('Book flights', 2, 1000), offSince: 2000 } });
-    await service.handle({ type: 'allow', url: 'https://www.youtube.com/watch' });
-    assert.deepEqual(storage.data.get('session').allowHosts, ['www.youtube.com']);
+    await service.handle({ type: 'allow', url: 'https://www.youtube.com/watch?v=1&t=2' });
+    assert.deepEqual(
+      storage.data.get('session').allowHosts,
+      ['youtube.com'],
+      'the whole site, from a URL with a query',
+    );
     assert.equal(storage.data.get('session').offSince, null);
     await service.handle({ type: 'snooze' });
     assert.equal(storage.data.get('session').snoozeUntil, 5000 + 5 * 60_000);
-    await service.handle({ type: 'disallow', host: 'www.youtube.com' });
+    await service.handle({ type: 'disallow', host: 'youtube.com' });
     assert.deepEqual(storage.data.get('session').allowHosts, []);
   });
 });
@@ -295,5 +346,57 @@ describe('service: stale sessions', () => {
     await service.handle({ type: 'continue' });
     assert.equal(storage.data.get('session').confirmedAt, 5000);
     assert.equal(storage.data.get('session').lastCheckAt, 5000);
+  });
+});
+
+describe('service: locking and routing', () => {
+  it('serialises concurrent checks so no session write is lost', async () => {
+    let release;
+    const gate = new Promise((resolve) => (release = resolve));
+    const jev = fakeJev(async (body) => {
+      if (/URL: https:\/\/slow\.example/.test(body.state)) await gate; // the first tab's request hangs
+      return /URL: https:\/\/slow\.example/.test(body.state) ? relevance(0.9, 0.1, 0, 0) : relevance(0, 0, 0, 1);
+    });
+    const storage = fakeStorage({ session: newSession('Book flights', 2, 1000) });
+    const service = createService({ storage, judge: createJudge({ jev }), now: () => 5000, log: () => {} });
+    const slow = service.handle({ type: 'check', page: { url: 'https://slow.example/a', title: 'Slow', text: 's' } });
+    const fast = service.handle({ type: 'check', page: { url: 'https://fast.example/b', title: 'Fast', text: 'f' } });
+    const allow = service.handle({ type: 'allow', url: 'https://www.youtube.com/watch?v=1' });
+    await Promise.all([fast, allow]);
+    release();
+    await slow;
+    const session = storage.data.get('session');
+    assert.deepEqual(session.allowHosts, ['youtube.com'], 'the allow survived the slow check');
+    assert.equal(session.lastOnTaskUrl, 'https://fast.example/b', 'the fast check survived too');
+    assert.deepEqual(session.onHosts, ['fast.example']);
+  });
+
+  it('applies read-modify-write in order when two edits race', async () => {
+    const { storage, service } = setup();
+    await Promise.all([
+      service.handle({ type: 'allow', url: 'https://a.example/' }),
+      service.handle({ type: 'allow', url: 'https://b.example/' }),
+      service.handle({ type: 'snooze' }),
+    ]);
+    const session = storage.data.get('session');
+    assert.deepEqual(session.allowHosts, ['a.example', 'b.example']);
+    assert.equal(session.snoozeUntil, 5000 + 5 * 60_000);
+  });
+
+  it('answers the documented reply for a JevError and for an unexpected error', async () => {
+    const busy = setup({
+      answer: () => {
+        throw new JevError('Jev is busy. Trying again in 30 s.', { status: 429 });
+      },
+    });
+    assert.deepEqual(await busy.service.handle({ type: 'check', page }), {
+      error: 'Jev is busy. Trying again in 30 s.',
+    });
+    const broken = setup({
+      answer: () => {
+        throw new RangeError('out of range');
+      },
+    });
+    assert.deepEqual(await broken.service.handle({ type: 'check', page }), { error: GENERIC_ERROR });
   });
 });

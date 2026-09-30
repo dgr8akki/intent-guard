@@ -7,7 +7,7 @@
   "homepage_url": "https://github.com/dgr8akki/intent-guard",
   "minimum_chrome_version": "140",
   "permissions": ["scripting", "storage"],
-  "host_permissions": ["https://ai-gateway.vercel.sh/*", "https://api.typesafe.ai/*"],
+  "host_permissions": ["http://*/*", "https://*/*", "https://ai-gateway.vercel.sh/*", "https://api.typesafe.ai/*"],
   "background": {
     "service_worker": "background.js",
     "type": "module"
@@ -17,12 +17,6 @@
       "matches": ["http://*/*", "https://*/*"],
       "js": ["content/content.js"],
       "run_at": "document_idle"
-    }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": ["fonts/source-serif-4.woff2"],
-      "matches": ["http://*/*", "https://*/*"]
     }
   ],
   "action": {

@@ -30,9 +30,14 @@ const storage = {
   remove: (key) => chrome.storage.local.remove(key),
 };
 chrome.action.setBadgeBackgroundColor({ color: '#aa0b56' });
+/** Verdicts survive the worker being stopped but not the browser closing; content scripts cannot read this area. */
+const sessionStore = {
+  get: async (key) => (await chrome.storage.session.get(key))[key],
+  set: (items) => chrome.storage.session.set(items),
+};
 const service = createService({
   storage,
-  judge: createJudge({ jev }),
+  judge: createJudge({ jev, store: sessionStore }),
   badge: (text) => chrome.action.setBadgeText({ text }),
   inject: injectIntoOpenTabs,
 });
@@ -46,16 +51,19 @@ chrome.runtime.onMessage.addListener((message, _sender, reply) => {
   return true; // reply asynchronously
 });
 
-// The "never send these sites" list changed (settings page or popup): every open page decides afresh.
+// Push state to open pages instead of letting them poll: a session started or ended tells every tab
+// whether to watch the page at all, and a change to the "never send" list makes each decide afresh.
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && changes.excludedHosts) broadcast({ type: 'recheck' });
+  if (area !== 'local') return;
+  if (changes.session) broadcast({ type: 'session', active: Boolean(changes.session.newValue) });
+  if (changes.excludedHosts) broadcast({ type: 'recheck' });
 });
 
 const httpTabs = () => chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
 
-/** Sends to every http(s) tab; tabs without the content script reject and are skipped. */
+/** Sends to every tab, whatever its URL; tabs without the content script reject and are skipped. */
 async function broadcast(message) {
-  const tabs = await httpTabs();
+  const tabs = await chrome.tabs.query({});
   await Promise.allSettled(tabs.map((tab) => chrome.tabs.sendMessage(tab.id, message)));
 }
 
