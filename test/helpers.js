@@ -8,7 +8,6 @@ export function fakeJev(respond) {
   const calls = [];
   return {
     calls,
-    secondsPaused: () => 0,
     async evaluate(body) {
       calls.push(body);
       return respond(body);

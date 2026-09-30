@@ -46,3 +46,21 @@ describe('manifest', () => {
     assert.ok(manifest.description.length <= 132, `${manifest.description.length} chars`);
   });
 });
+
+describe('background service worker', () => {
+  const background = readFileSync(new URL('background.js', src), 'utf8');
+
+  it('guards setAccessLevel so a missing method cannot abort worker startup', () => {
+    // storage.local.setAccessLevel arrived in Chrome 140. Called unguarded on an older
+    // Chrome it throws during evaluation and onMessage never registers, so nothing nudges.
+    assert.ok(!/setAccessLevel\(/.test(background), 'unguarded setAccessLevel( call');
+    assert.match(background, /setAccessLevel\?\.\(/);
+  });
+
+  it('requires a Chrome that has storage.local.setAccessLevel', () => {
+    assert.ok(
+      Number(manifest.minimum_chrome_version) >= 140,
+      `minimum_chrome_version ${manifest.minimum_chrome_version}`,
+    );
+  });
+});

@@ -9,7 +9,7 @@
 [![CI](https://github.com/dgr8akki/intent-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/dgr8akki/intent-guard/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2b3440.svg)](LICENSE)
 ![Manifest V3](https://img.shields.io/badge/manifest-v3-2b3440.svg)
-![Chrome 116+](https://img.shields.io/badge/chrome-116%2B-2b3440.svg)
+![Chrome 140+](https://img.shields.io/badge/chrome-140%2B-2b3440.svg)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/nudge-dark.png" />
@@ -118,6 +118,13 @@ evals/                     Live evaluation against Jev
 
 - **Unit tests** cover the verdict rules, the drift clock (start, reset, unclear pages, snooze, allowed sites), the judge's caching and queueing, and the content script running in jsdom (what it sends, when it nudges, the nudge buttons).
 - **The live evaluation** judges eight hand-written task/page pairs with the real model, including tricky ones like Hacker News showing a Postgres headline while you're fixing a Postgres bug.
+  If you change `QUESTIONS` or the verdict threshold in `guard.js`, run it again and keep it at 100%; add a sample for any new behaviour.
+
+### Releasing
+
+1. Bump `version` in `package.json` and `src/manifest.json` (a test checks they match) and add a `CHANGELOG.md` entry.
+2. `npm run check && npm run eval && npm run package`.
+3. Upload `dist/intent-guard-<version>.zip` to the Chrome Web Store and attach it to a GitHub release.
 
 ## Troubleshooting
 

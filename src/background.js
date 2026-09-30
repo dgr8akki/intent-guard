@@ -7,7 +7,8 @@
 import { JevError, createJevClient } from './lib/jev.js';
 import { advance, createJudge, disallow, isAllowed, nudgeAt } from './lib/guard.js';
 
-chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
+// Only on Chrome 140+; a throw here would stop onMessage registering.
+chrome.storage.local.setAccessLevel?.({ accessLevel: 'TRUSTED_CONTEXTS' });
 
 // First install: open settings in a tab to connect a key, rather than leaving it to a 320px popup.
 chrome.runtime.onInstalled.addListener(({ reason }) => {

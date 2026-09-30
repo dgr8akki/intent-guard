@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Intent Guard now requires Chrome 140 or later.
+
 ## [1.6.0] - 2026-09-27
 
 ### Added
@@ -15,7 +21,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
-- Redesigned nudge card in the same Broadsheet style as the popup and settings page: a double-rule masthead, a serif sentence with your task in bold, and a full-width Back to task button above It's part of it and 5 more minutes.
+- Redesigned nudge card to match the popup and settings page: a double-rule masthead, a serif sentence with your task in bold, and a full-width Back to task button above It's part of it and 5 more minutes.
 - The nudge card now follows the system light or dark theme instead of always being dark, with a hairline border and deep shadow so it stays legible on any page.
 
 ### Added
@@ -26,7 +32,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
-- Redesigned popup in the same Broadsheet style as the settings page: double-rule masthead with a section label, the task written on a ruled line like a headline, and a 360px width.
+- Redesigned popup to match the settings page: double-rule masthead with a section label, the task written on a ruled line like a headline, and a 360px width.
 - "Nudge after" is a segmented 1 / 2 / 5 / 10 min control (radio buttons with arrow-key support), 2 min by default.
 - The active session shows your task as a headline that scales with its length.
 - "1 site allowed" / "2 sites allowed" instead of "site(s) allowed".
@@ -41,7 +47,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
-- Redesigned settings page (from a Claude Design exploration): broadsheet-style masthead, serif headline, bordered provider tiles, italic step numerals, and light and dark themes.
+- Redesigned settings page: double-rule masthead, serif headline, bordered provider tiles, italic step numerals, and light and dark themes.
 - Clearer states: a Welcome / Settings / Replace your key kicker, a spinner and read-only field while a key is checked, an outlined field on a rejected key, and an icon on every status message.
 - Source Serif 4 is bundled with the extension (SIL Open Font License), so the page still makes no remote requests.
 

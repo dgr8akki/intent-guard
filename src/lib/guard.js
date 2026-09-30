@@ -54,7 +54,7 @@ export function describePage(intent, { url, title, text = '' }) {
 }
 
 /**
- * Sums each side of the scale, as in Slop Radar: a page split between
+ * Sums each side of the scale: a page split between
  * "useful" and "exactly the task" is clearly on task even though neither level
  * alone is confident.
  *
@@ -136,7 +136,7 @@ export function createJudge({ jev, max = 500 }) {
     if (cache.has(key)) return cache.get(key);
     const result = toVerdict(await jev.evaluate({ state: describePage(intent, page), questions: QUESTIONS }));
     cache.set(key, result);
-    // ponytail: drop-oldest cap, Map keeps insertion order
+    // drop-oldest cap; Map keeps insertion order
     if (cache.size > max) cache.delete(cache.keys().next().value);
     return result;
   }
