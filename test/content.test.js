@@ -104,7 +104,7 @@ describe('content script', () => {
 
   it('nudges once drift time has passed, naming the task', async () => {
     const { nudge, close } = await load(() => drifted);
-    assert.match(nudge().textContent, /“Book flights”/);
+    assert.match(nudge().textContent, /"Book flights"/);
     assert.ok(nudge().querySelector('[data-act="back"]'));
     close();
   });

@@ -1,0 +1,14 @@
+{
+  "appName": {
+    "message": "Intent Guard: stay on task",
+    "description": "Extension name as shown in the store and in chrome://extensions. 45 characters max."
+  },
+  "appShortName": {
+    "message": "Intent Guard",
+    "description": "Short name for places with little room."
+  },
+  "appDescription": {
+    "message": "Tell it what you're working on. Wander onto unrelated pages for a few minutes and a small card asks you back.",
+    "description": "Store summary. 132 characters max."
+  }
+}

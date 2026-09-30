@@ -10,7 +10,7 @@ const youtube = [{ id: 7, url: 'https://www.youtube.com/watch?v=abc' }];
 const popup = (chrome) => loadPage('../src/popup/popup.html', '../src/popup/popup.js', chrome);
 
 describe('popup: never send this site', () => {
-  it('offers "Don’t judge this site" for the current tab and saves its host', async () => {
+  it(`offers "Don't judge this site" for the current tab and saves its host`, async () => {
     const chrome = fakeChrome({ local: { apiKey: 'vck_x', session }, tabs: youtube });
     const { document, tick, restore } = await popup(chrome);
     const skip = document.getElementById('skip');
@@ -193,7 +193,7 @@ describe('popup: stale sessions', () => {
     const { document, restore } = await popup(active({ startedAt: Date.now() - 5 * HOUR }));
     const stale = document.getElementById('stale');
     assert.equal(stale.hidden, false);
-    assert.match(stale.textContent, /Still working on “Book flights”\?/);
+    assert.match(stale.textContent, /Still working on "Book flights"\?/);
     assert.equal(document.getElementById('active').firstElementChild, stale, 'it comes first');
     restore();
   });
@@ -293,7 +293,7 @@ describe('popup: Start button', () => {
     const { document, restore } = await popup(fakeChrome({ local: { apiKey: 'vck_x' }, tabs: youtube }));
     const start = document.querySelector('#start-form button[type="submit"]');
     assert.equal(start.querySelector('.keycap'), null);
-    assert.match(start.textContent.replace(/\s+/g, ' '), /Start \(press Enter to start\)/);
+    assert.match(start.textContent.replace(/\s+/g, ' '), /Start session \(press Enter to start\)/);
     assert.equal(start.querySelector('[aria-hidden="true"]'), null);
     restore();
   });
@@ -367,6 +367,10 @@ describe('popup: interactions', () => {
     fireIntervals();
     assert.match(document.getElementById('drift-text').textContent, /Off task for 3 min/);
     assert.match(document.getElementById('drift-detail').textContent, /nudge due/);
+    assert.match(
+      document.getElementById('active-meta').textContent,
+      /^Started \S+(?: [AP]M)? · nudges after 2 min off task$/,
+    );
     restore();
   });
 

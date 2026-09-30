@@ -1,10 +1,6 @@
-/**
- * Content script (classic, content scripts can't be modules). Reports the page
- * to the service worker whenever it's shown or its URL changes, and shows a
- * nudge once the service worker says the user has drifted long enough. With no
- * session running it does nothing after the first reply until the worker says
- * one started, so idle tabs neither poll nor wake the worker.
- */
+// Content script (classic: content scripts can't be modules). Reports the page to the worker when it
+// is shown or its path changes, and shows the card once the worker says the user has drifted long
+// enough. With no session running it does nothing until the worker says one started.
 (() => {
   // The worker injects this into tabs that were open before install or session start; a page may already have it.
   if (window.__intentGuard) return;
@@ -120,12 +116,12 @@
         :host {
           all: initial; position: fixed; z-index: 2147483647; right: 16px; bottom: 16px;
           --bg: #f3f2f2; --ink: #201e1d; --line: #8a8686; --rule: #201e1d;
-          --accent: #00739a; --accent-hover: #006786; --accent-press: #004961; --on-accent: #f3f2f2;
+          --accent: #00739a; --on-accent: #f3f2f2;
         }
         @media (prefers-color-scheme: dark) {
           :host {
             --bg: #1b1a19; --ink: #ece8e7; --line: #7a7675; --rule: #ece8e7;
-            --accent: #62c5ee; --accent-hover: #99e0ff; --accent-press: #cbeeff; --on-accent: #1b1a19;
+            --accent: #62c5ee; --on-accent: #1b1a19;
           }
         }
         .card {
@@ -145,19 +141,14 @@
         button {
           min-height: 40px; padding: 0 8px; border: 1px solid var(--line); border-radius: 2px;
           background: transparent; color: var(--ink); font: 600 14px/1.2 Georgia, serif; cursor: pointer;
-          transition: background-color 150ms ease;
         }
-        button:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); }
-        button:active { background: color-mix(in srgb, var(--ink) 14%, transparent); }
         button.primary { border-color: transparent; background: var(--accent); color: var(--on-accent); font-size: 15px; }
-        button.primary:hover { background: var(--accent-hover); }
-        button.primary:active { background: var(--accent-press); }
         button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
         .kbd {
           margin-left: 6px; padding: 0 5px; border: 1px solid var(--line); border-radius: 3px;
           font: 600 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; opacity: 0.85;
         }
-        @media (prefers-reduced-motion: reduce) { button { transition: none; } }
+        @media (prefers-reduced-motion: reduce) { .card { scroll-behavior: auto; } }
       </style>
       <div class="card" role="status" aria-live="polite">
         <div class="masthead"><div>
@@ -169,11 +160,11 @@
           </svg>
           <span>Intent Guard</span>
         </div></div>
-        <p>This doesn’t look like part of “<span class="task"></span>”.</p>
+        <p>This doesn't look like part of "<span class="task"></span>".</p>
         <div class="actions">
           <button class="primary" data-act="back">Back to task</button>
           <div class="row">
-            <button data-act="allow">It’s part of it</button>
+            <button data-act="allow">It's part of it</button>
             <button data-act="snooze">5 more minutes<kbd class="kbd" aria-hidden="true">Esc</kbd></button>
           </div>
         </div>
@@ -193,6 +184,7 @@
   }
 
   /** A navigation within the document: judge the new page once its title has settled. */
+  // TODO: re-judge infinite feeds on scroll, not just URL change
   function urlChanged() {
     if (pathOf() === lastPath) return;
     lastPath = pathOf();

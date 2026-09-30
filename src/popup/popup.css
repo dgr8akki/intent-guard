@@ -110,7 +110,7 @@ h3 {
   background: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
-/* — masthead: the settings page's thick-over-thin rule — */
+/* masthead */
 
 .masthead {
   padding-top: 10px;
@@ -126,7 +126,8 @@ h3 {
   box-shadow: 0 -5px 0 -2px var(--rule);
 }
 
-.masthead-bar svg {
+.masthead-bar svg,
+.masthead-bar img {
   flex: none;
 }
 
@@ -141,7 +142,7 @@ h3 {
   color: var(--muted);
 }
 
-/* — buttons — */
+/* buttons */
 
 .btn {
   display: inline-flex;
@@ -212,14 +213,12 @@ h3 {
   white-space: nowrap;
 }
 
-/* — shared type — */
+/* type */
 
 .kicker {
   margin-bottom: 6px;
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--link);
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .lede {
@@ -238,7 +237,7 @@ h3 {
   text-wrap: pretty;
 }
 
-/* — states — */
+/* states */
 
 #setup {
   margin-top: 18px;
@@ -254,7 +253,7 @@ h3 {
   margin-top: 16px;
 }
 
-/* — ready: the task on a ruled line — */
+/* task field */
 
 .label-row {
   display: flex;
@@ -311,7 +310,7 @@ h3 {
   box-shadow: 0 2px 0 var(--accent); /* the rule thickens to 3px: a change of weight as well as colour */
 }
 
-/* — nudge after: segmented radios — */
+/* nudge-after radios */
 
 .drift {
   min-width: 0;
@@ -381,7 +380,7 @@ h3 {
   font-size: 13px;
 }
 
-/* — what leaves the browser, said once — */
+/* consent line */
 
 .consent {
   display: flex;
@@ -412,7 +411,7 @@ h3 {
   font-size: 13px;
 }
 
-/* — active: what you wrote reads as what you committed to — */
+/* active session */
 
 .task {
   font-size: 25px;
@@ -438,7 +437,7 @@ h3 {
   font-size: 14px;
 }
 
-/* — still on this? asked after four hours — */
+/* stale session prompt */
 
 .stale {
   margin-bottom: 18px;
@@ -456,7 +455,7 @@ h3 {
   gap: 8px;
 }
 
-/* — the last failed check, under the task — */
+/* failed-check line */
 
 .error-line {
   display: flex;
@@ -483,7 +482,7 @@ h3 {
   white-space: nowrap;
 }
 
-/* — enhanced active state: time in session, drift, allowed sites — */
+/* time in session, drift, allowed sites */
 
 .kicker-row {
   display: flex;
@@ -566,7 +565,7 @@ h3 {
   color: var(--ink);
 }
 
-/* — never send this site — */
+/* never send this site */
 
 .skip {
   margin-bottom: 12px;

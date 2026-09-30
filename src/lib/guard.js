@@ -1,13 +1,8 @@
-/**
- * Judges whether a page serves the user's stated task, and tracks how long
- * they have been off it. One Jev call per page, cached for the session.
- *
- * @module lib/guard
- */
+// Judges whether a page serves the user's stated task, and tracks how long they have been off it.
 
 import { JevError } from './jev.js';
 
-/** The one question asked about every page. */
+// The one question asked about every page.
 export const QUESTIONS = {
   relevance: {
     type: 'score',
@@ -21,18 +16,11 @@ export const QUESTIONS = {
   },
 };
 
-/** A side of the scale needs this much probability to decide the verdict. */
+// A side of the scale needs this much probability to decide the verdict.
 export const VERDICT_THRESHOLD = 0.6;
 
-/** Characters of page text sent with the title: the heading and description, or the opening text when there are none. */
+// Characters of page text sent with the title: the heading and description, or the opening text when there are none.
 export const TEXT_LIMIT = 300;
-
-/**
- * @typedef {object} Page
- * @property {string} url Origin and path only; the content script drops query and hash.
- * @property {string} title
- * @property {string} [text] Headline and opening text of the page.
- */
 
 /**
  * @typedef {object} Session
@@ -48,7 +36,6 @@ export const TEXT_LIMIT = 300;
  * @property {number} [confirmedAt] When the user last said they were still on it.
  */
 
-/** @param {string} intent @param {number} [driftMinutes] @param {number} [now] @returns {Session} */
 export function newSession(intent, driftMinutes = 2, now = Date.now()) {
   return {
     intent,
@@ -63,19 +50,14 @@ export function newSession(intent, driftMinutes = 2, now = Date.now()) {
   };
 }
 
-/** A session with no page checked for this long was abandoned, not paused. */
+// A session with no page checked for this long was abandoned, not paused.
 export const IDLE_LIMIT_MS = 90 * 60_000;
-/** No session outlives a working day; yesterday's task must not judge today's pages. */
+// No session outlives a working day; yesterday's task must not judge today's pages.
 export const SESSION_LIMIT_MS = 8 * 3_600_000;
-/** From here the popup asks whether the task is still the task. */
+// From here the popup asks whether the task is still the task.
 export const STALE_AFTER_MS = 4 * 3_600_000;
 
-/**
- * Why a session should end on its own, or null while it is still live.
- *
- * @param {Session | null | undefined} session @param {number} now
- * @returns {'idle' | 'old' | null}
- */
+// Why a session should end on its own, or null while it is still live.
 export function expiryReason(session, now) {
   if (!session) return null;
   if (now - session.startedAt > SESSION_LIMIT_MS) return 'old';
@@ -83,12 +65,12 @@ export function expiryReason(session, now) {
   return null;
 }
 
-/** Whether the popup should lead with "Still working on this?". @param {Session} session @param {number} now */
+// Whether the popup should lead with "Still working on this?".
 export function isStale(session, now) {
   return now - (session.confirmedAt ?? session.startedAt) > STALE_AFTER_MS;
 }
 
-/** The `state` Jev sees: the task, then the page. */
+// The `state` Jev sees: the task, then the page.
 export function describePage(intent, { url, title, text = '' }) {
   return `User's task: ${intent}\n\nPage title: ${title}\nURL: ${url}\nPage text: ${text.slice(0, TEXT_LIMIT)}`;
 }
@@ -97,8 +79,6 @@ export function describePage(intent, { url, title, text = '' }) {
  * Sums each side of the scale: a page split between
  * "useful" and "exactly the task" is clearly on task even though neither level
  * alone is confident.
- *
- * @returns {{ verdict: 'on' | 'off' | 'unclear', on: number }}
  */
 export function toVerdict(answers) {
   const probabilities = answers?.relevance?.probabilities;
@@ -117,10 +97,6 @@ export function toVerdict(answers) {
  * ambiguous page can't reset a stretch of scrolling. An allow-listed page
  * stops the clock but is not where "Back to task" should go: the user said it
  * was part of the task, not that it was the task.
- *
- * @param {Session} session @param {'on' | 'off' | 'unclear'} verdict @param {string} url @param {number} now
- * @param {{ judged?: boolean }} [options] `judged: false` for allow-listed pages.
- * @returns {Session}
  */
 export function advance(session, verdict, url, now, { judged = true } = {}) {
   if (verdict === 'on') return { ...session, offSince: null, lastOnTaskUrl: judged ? url : session.lastOnTaskUrl };
@@ -128,7 +104,7 @@ export function advance(session, verdict, url, now, { judged = true } = {}) {
   return session;
 }
 
-/** When to nudge, or null when on task. @param {Session} session */
+// When to nudge, or null when on task.
 export function nudgeAt(session) {
   if (session.offSince === null) return null;
   return Math.max(session.offSince + session.driftMinutes * 60_000, session.snoozeUntil);
@@ -147,8 +123,6 @@ const TWO_LABEL_SUFFIXES = new Set(
 /**
  * The site a hostname belongs to: `www.youtube.com` and `m.youtube.com` are both `youtube.com`,
  * `www.bbc.co.uk` is `bbc.co.uk`. IP addresses and single labels are returned as they are.
- *
- * @param {string} hostname
  */
 export function siteOf(hostname) {
   const host = String(hostname).toLowerCase().replace(/\.$/, '');
@@ -158,13 +132,13 @@ export function siteOf(hostname) {
   return labels.slice(-(suffix + 1)).join('.');
 }
 
-/** Allowing a site covers all its subdomains, so "It's part of it" on www. also covers m. @param {Session} session @param {string} url */
+// Allowing a site covers all its subdomains, so "It's part of it" on www. also covers m.
 export function isAllowed(session, url) {
   const site = siteOf(new URL(url).hostname);
   return session.allowHosts.some((host) => siteOf(host) === site);
 }
 
-/** Time in session for the popup: `{ value: '42', unit: 'min' }`, or `'1:05'` hr past an hour. */
+// Time in session for the popup: `{ value: '42', unit: 'min' }`, or `'1:05'` hr past an hour.
 export function formatElapsed(ms) {
   const minutes = Math.max(0, Math.floor(ms / 60_000));
   if (minutes < 1) return { value: '<1', unit: 'min' };
@@ -175,8 +149,6 @@ export function formatElapsed(ms) {
 /**
  * The popup's drift line, or null while on task:
  * "Off task for 1 min · nudge in 1 min", "… · nudge due", or the snooze when one is running.
- *
- * @param {Session} session @param {number} now
  */
 export function driftLine(session, now) {
   if (session.offSince === null) return null;
@@ -192,9 +164,6 @@ export function driftLine(session, now) {
  * The popup's line about the last failed check, or null when checks succeed.
  * Key problems get a plain sentence and a way to settings; a busy provider is
  * played down because the next page retries anyway.
- *
- * @param {{ message: string, status: number | null, at: number } | null | undefined} lastError
- * @returns {{ text: string, action: string, tone: 'auth' | 'busy' | 'other' } | null}
  */
 export function errorLine(lastError) {
   if (!lastError) return null;
@@ -206,12 +175,12 @@ export function errorLine(lastError) {
   return { text: message, action: 'Settings', tone: 'other' };
 }
 
-/** Stops allowing a site the user allowed from the nudge. @param {Session} session @param {string} host */
+// Stops allowing a site the user allowed from the nudge.
 export function disallow(session, host) {
   return { ...session, allowHosts: session.allowHosts.filter((h) => h !== host) };
 }
 
-/** Where verdicts are kept between worker restarts: `chrome.storage.session` in the extension. */
+// Where verdicts are kept between worker restarts: `chrome.storage.session` in the extension.
 export const CACHE_KEY = 'judgeCache';
 
 /**
@@ -219,17 +188,12 @@ export const CACHE_KEY = 'judgeCache';
  * and page. MV3 stops an idle worker after about 30 s, so a memory-only cache
  * would make every tab switch a fresh paid request; with a `store` the cache
  * is kept until the browser closes. Without one it lives in memory.
- *
- * @param {object} deps
- * @param {import('./jev.js').JevClient} deps.jev
- * @param {number} [deps.max]
- * @param {{ get: (key: string) => Promise<any>, set: (items: Record<string, any>) => Promise<void> }} [deps.store]
  */
 export function createJudge({ jev, max = 500, store }) {
   let cache = store ? null : new Map();
   let chain = Promise.resolve();
 
-  /** The stored copy, once; a store that fails just means starting empty. */
+  // The stored copy, once; a store that fails just means starting empty.
   async function loaded() {
     if (!cache) cache = new Map(Object.entries((await store.get(CACHE_KEY).catch(() => null)) ?? {}));
     return cache;
@@ -248,10 +212,9 @@ export function createJudge({ jev, max = 500, store }) {
   }
 
   return {
-    /** @param {string} intent @param {Page} page */
     judge(intent, page) {
       const result = chain.then(() => judgeNow(intent, page));
-      chain = result.catch(() => {}); // one failure must not stall the queue
+      chain = result.catch(() => {}); // keep the queue moving past a rejection
       return result;
     },
   };

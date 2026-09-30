@@ -20,19 +20,19 @@
 :root {
   color-scheme: light dark;
 
-  /* colour */
+  /* colour: text tokens clear 4.5:1 and control borders 3:1 on both --bg and --field, light and dark */
   --bg: #f3f2f2;
-  --surface: #eae9e9; /* masked-key chip, hover fill */
-  --field: #eae9e9; /* input fill */
+  --surface: #eae9e9;
+  --field: #eae9e9;
   --ink: #201e1d;
-  --muted: #5c5959; /* 6.2:1 on --bg */
-  --line: #858181; /* control borders, 3.1:1 on the field fill as well as the page */
-  --rule: #201e1d; /* masthead rules */
-  --accent: #00739a; /* 4.8:1 with --on-accent */
+  --muted: #5c5959;
+  --line: #858181;
+  --rule: #201e1d;
+  --accent: #00739a;
   --accent-hover: #006786;
   --accent-press: #004961;
   --on-accent: #f3f2f2;
-  --accent-tint: #e9f8ff; /* selected provider */
+  --accent-tint: #e9f8ff;
   --link: #006786;
   --link-hover: #004961;
   --success: #006786;
@@ -137,7 +137,7 @@ code {
   background: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
-/* — page — */
+/* page */
 
 .page {
   max-width: 1440px;
@@ -177,10 +177,8 @@ code {
 
 .kicker {
   margin: clamp(20px, 2.5vw, 40px) 0 10px;
-  font-size: 13px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--link);
+  font-size: 15px;
+  color: var(--muted);
 }
 
 h1 {
@@ -222,7 +220,7 @@ h2 {
   color: var(--ink);
 }
 
-/* — buttons — */
+/* buttons */
 
 .btn {
   display: inline-flex;
@@ -310,7 +308,7 @@ h2 {
   }
 }
 
-/* — provider tiles: native radios inside labels keep arrow-key behaviour — */
+/* provider tiles (native radios keep arrow keys) */
 
 .providers {
   min-width: 0;
@@ -411,7 +409,7 @@ h2 {
   color: var(--muted);
 }
 
-/* — steps: italic serif numerals — */
+/* steps */
 
 .steps {
   display: grid;
@@ -444,10 +442,9 @@ h2 {
   white-space: nowrap;
 }
 
+/* The shared options.js appends a mark to outbound links; the hidden "(opens in a new tab)" text is enough here. */
 .external {
-  display: inline-block;
-  margin-left: 3px;
-  vertical-align: -1px;
+  display: none;
 }
 
 .visually-hidden {
@@ -459,7 +456,7 @@ h2 {
   white-space: nowrap;
 }
 
-/* — key field — */
+/* key field */
 
 .key-field {
   display: flex;
@@ -510,7 +507,7 @@ h2 {
   background: transparent;
 }
 
-/* — status lines: always an icon as well as colour; one line reserved so nothing jumps — */
+/* status lines (min-height so nothing jumps) */
 
 .status {
   display: flex;
@@ -545,7 +542,7 @@ h2 {
   color: var(--ink);
 }
 
-/* — connected — */
+/* connected */
 
 .connected {
   margin-bottom: 8px;
@@ -599,9 +596,9 @@ h2 {
   margin-top: 16px;
 }
 
-/* — privacy line — */
+/* privacy line */
 
-/* — never send these sites — */
+/* never send these sites */
 
 .exclusions {
   margin-top: 40px;

@@ -11,8 +11,7 @@ const active = $('active');
 const intentInput = $('intent');
 const count = $('count');
 
-/** The counter stays out of the way until the task gets long. */
-const COUNT_FROM = 160;
+const COUNT_FROM = 160; // show the counter from here
 
 // The popup only needs to know that a key exists; the key itself stays on the settings page and in the worker.
 const [
@@ -153,7 +152,7 @@ function render(session) {
 
   const skipped = Boolean(currentHost) && isExcluded(currentHost, excluded);
   $('skip').hidden = !currentHost || skipped;
-  $('skip').setAttribute('aria-label', `Don’t judge ${currentHost}`);
+  $('skip').setAttribute('aria-label', `Don't judge ${currentHost}`);
   $('skip-note').hidden = !skipped;
   $('skip-host').textContent = currentHost;
 }
@@ -187,7 +186,7 @@ function renderClock(session) {
 
   const sites = session.allowHosts.length;
   const allowed = sites ? ` · ${sites} site${sites === 1 ? '' : 's'} allowed` : '';
-  $('active-meta').textContent = `Since ${since} · nudge after ${session.driftMinutes} min${allowed}`;
+  $('active-meta').textContent = `Started ${since} · nudges after ${session.driftMinutes} min off task${allowed}`;
 }
 
 /** The host of the tab the popup opened over, or '' for pages the extension can't run on. */

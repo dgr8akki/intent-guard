@@ -1,11 +1,11 @@
-// Live evaluation against the real Jev model: judges hand-written task/page
-// pairs and checks the verdicts. Needs AI_GATEWAY_API_KEY (see .env.example); not run in CI.
+// Live check against the real Jev model: judges task/page pairs I have actually typed and
+// checks the verdicts. Needs a key in .env (see .env.example); not part of npm test or CI.
 //
 //   npm run eval
 //
 // TypeSafe rate-limits bursts and has brief outages, so each case waits and retries.
-import { createJevClient } from '../src/lib/jev.js';
-import { QUESTIONS, describePage, toVerdict } from '../src/lib/guard.js';
+import { createJevClient } from '../../src/lib/jev.js';
+import { QUESTIONS, describePage, toVerdict } from '../../src/lib/guard.js';
 
 const MAX_ATTEMPTS = 6;
 
@@ -13,25 +13,25 @@ const MAX_ATTEMPTS = 6;
 const samples = [
   [
     'on',
-    'Compare flights to Goa for December',
+    'Renew the car insurance before Friday',
     {
-      url: 'https://www.google.com/travel/flights',
-      title: 'Delhi to Goa | Google Flights',
-      text: 'Round trip · 1 passenger · Economy. Delhi → Goa, Dec 20 – Dec 27. Best departing flights: IndiGo 6E 2012 ₹6,450, Air India AI 883 ₹7,120.',
+      url: 'https://www.axa.ie/car-insurance/renew',
+      title: 'Renew your car insurance online | AXA Ireland',
+      text: 'Renew your car insurance. Enter your policy number and date of birth to see your renewal quote. Pay in full or monthly.',
     },
   ],
   [
     'off',
-    'Compare flights to Goa for December',
+    'Renew the car insurance before Friday',
     {
       url: 'https://www.youtube.com/shorts/Xk2',
-      title: 'cat tries cucumber 😂 #shorts - YouTube',
-      text: 'cat tries cucumber 😂 #shorts 2.1M views. Subscribe. Comments 4.2K',
+      title: 'dog refuses to get out of the car #shorts - YouTube',
+      text: 'dog refuses to get out of the car #shorts 1.4M views. Subscribe. Comments 3.1K',
     },
   ],
   [
     'on',
-    'Fix the flaky Postgres migration in our CI',
+    'Work out why the Postgres migration flakes in CI',
     {
       url: 'https://stackoverflow.com/questions/1234/postgres-advisory-lock-released-early',
       title: 'Postgres advisory lock released early during migration - Stack Overflow',
@@ -40,7 +40,7 @@ const samples = [
   ],
   [
     'off',
-    'Fix the flaky Postgres migration in our CI',
+    'Work out why the Postgres migration flakes in CI',
     {
       url: 'https://www.reddit.com/r/all',
       title: 'Reddit - Dive into anything',
@@ -48,8 +48,9 @@ const samples = [
     },
   ],
   [
+    // A Postgres headline on a news front page is still the news, not the bug.
     'off',
-    'Fix the flaky Postgres migration in our CI',
+    'Work out why the Postgres migration flakes in CI',
     {
       url: 'https://news.ycombinator.com/',
       title: 'Hacker News',
@@ -57,31 +58,40 @@ const samples = [
     },
   ],
   [
-    // Loosely related counts as drift: rabbit holes are the point. "It's part of it" allows the site.
+    // Loosely related is still off task; this is the case the whole extension exists for. "It's part of it" allows the site.
     'off',
-    'Compare flights to Goa for December',
+    'Plan the Lisbon trip for the October bank holiday',
     {
-      url: 'https://en.wikipedia.org/wiki/Goa',
-      title: 'Goa - Wikipedia',
-      text: 'Goa is a state on the southwestern coast of India. Beaches, Portuguese heritage, tourism peaks Nov-Feb.',
-    },
-  ],
-  [
-    'off',
-    'Write the Q3 board update',
-    {
-      url: 'https://www.amazon.in/dp/B0CX',
-      title: 'Sony WH-1000XM6 Wireless Headphones : Amazon.in: Electronics',
-      text: 'Sony WH-1000XM6. ₹29,990. Industry-leading noise cancellation. Add to Cart. Buy Now. Customers also bought.',
+      url: 'https://en.wikipedia.org/wiki/History_of_Lisbon',
+      title: 'History of Lisbon - Wikipedia',
+      text: 'Lisbon is one of the oldest cities in Western Europe, predating Rome, London and Paris. Phoenician traders, Roman Olisipo, Moorish rule, the 1755 earthquake.',
     },
   ],
   [
     'on',
-    'Write the Q3 board update',
+    'Plan the Lisbon trip for the October bank holiday',
+    {
+      url: 'https://www.ryanair.com/ie/en/trip/flights/select',
+      title: 'Select flights Dublin to Lisbon | Ryanair',
+      text: 'Dublin (DUB) to Lisbon (LIS). Fri 24 Oct 06:35, from EUR 39.99. Return Mon 27 Oct 21:10. Choose your fare.',
+    },
+  ],
+  [
+    'off',
+    "Write up the incident review for last night's outage",
+    {
+      url: 'https://www.amazon.co.uk/dp/B0CX',
+      title: 'Sony WH-1000XM6 Wireless Headphones : Amazon.co.uk: Electronics',
+      text: 'Sony WH-1000XM6. GBP 299. Industry-leading noise cancellation. Add to Basket. Buy Now. Customers also bought.',
+    },
+  ],
+  [
+    'on',
+    "Write up the incident review for last night's outage",
     {
       url: 'https://docs.google.com/document/d/abc/edit',
-      title: 'Q3 Board Update - DRAFT - Google Docs',
-      text: 'Q3 Board Update. Summary: ARR grew 18% QoQ to $4.2M. Hiring: 3 engineers joined. Risks: enterprise pipeline slipping into Q4.',
+      title: 'Incident review 2026-09-29: checkout latency - Google Docs',
+      text: 'Summary: p99 checkout latency rose to 9 s for 41 minutes after the 22:10 deploy. Timeline. Contributing factors. Action items.',
     },
   ],
 ];

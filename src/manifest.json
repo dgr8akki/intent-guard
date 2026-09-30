@@ -1,9 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "Intent Guard",
-  "short_name": "Intent Guard",
+  "name": "__MSG_appName__",
+  "short_name": "__MSG_appShortName__",
+  "default_locale": "en",
   "version": "1.6.0",
-  "description": "Say what you're working on. Get a gentle nudge when you drift to pages that aren't part of it.",
+  "description": "__MSG_appDescription__",
   "homepage_url": "https://github.com/dgr8akki/intent-guard",
   "minimum_chrome_version": "140",
   "permissions": ["scripting", "storage"],

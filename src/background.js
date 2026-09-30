@@ -49,7 +49,7 @@ chrome.runtime.onMessage.addListener((message, _sender, reply) => {
   const result = service.handle(message);
   if (!result) return false;
   result.then(reply);
-  return true; // reply asynchronously
+  return true;
 });
 
 // Push state to open pages instead of letting them poll: a session started or ended tells every tab

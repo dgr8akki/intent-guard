@@ -12,6 +12,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Changed
 
 - Intent Guard now requires Chrome 140 or later.
+- The extension is listed as "Intent Guard: stay on task", with a new one-line description. Name and description come from `_locales` (English and British English).
 - The nudge card uses Georgia instead of the bundled serif, so the extension no longer exposes a font file to web pages (a way for a site to tell the extension was installed).
 - _It's part of it_ now allows the whole site: allowing `www.youtube.com` also covers `m.youtube.com` and `youtube.com`. The popup lists the site as `youtube.com`.
 - Each judged page sends less: its heading and description, or at most 300 characters of opening text when it has neither (was up to 800 characters of body text). A site the model has already put on task is not asked about again during the session.
