@@ -1,22 +1,30 @@
 /**
  * Two small courtesies on the key field that the shared options.js leaves to the page:
- * a Show/Hide toggle, and a reason when Connect is pressed with nothing typed.
+ * Show/Hide for a pasted key, and a reason when Connect is pressed with nothing typed.
  */
 
 const $ = (id) => document.getElementById(id);
 const input = $('api-key');
-const show = $('show-key');
+const button = $('show-key');
 const status = $('key-status');
 
-show.addEventListener('click', () => {
-  const revealed = input.type === 'password';
-  input.type = revealed ? 'text' : 'password';
-  show.setAttribute('aria-pressed', String(revealed));
-  show.textContent = revealed ? 'Hide' : 'Show';
+// The label stays put; aria-pressed carries the state.
+function reveal(show) {
+  input.type = show ? 'text' : 'password';
+  button.setAttribute('aria-pressed', String(show));
+}
+
+button.addEventListener('click', () => {
+  reveal(input.type === 'password');
+  input.focus({ preventScroll: true });
 });
 
+// A key that has been checked goes to storage, and a cancelled edit is over: nothing readable stays on screen.
+input.form.addEventListener('submit', () => reveal(false));
+$('cancel').addEventListener('click', () => reveal(false));
+
 // options.js handles the submit first and only refocuses on an empty field; say why nothing happened.
-$('key-form').addEventListener('submit', () => {
+input.form.addEventListener('submit', () => {
   if (input.value.trim()) return;
   input.setAttribute('aria-invalid', 'true');
   status.dataset.tone = 'error';

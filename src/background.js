@@ -4,7 +4,7 @@
  * extension storage, out of the page's reach. The decisions are in lib/service.js.
  */
 
-import { createJevClient } from './lib/jev.js';
+import { createJevClient, sessionPauseStore } from './lib/jev.js';
 import { createJudge } from './lib/guard.js';
 import { createService } from './lib/service.js';
 
@@ -21,6 +21,7 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
 const jev = createJevClient({
   getKey: async () => (await chrome.storage.local.get('apiKey')).apiKey ?? '',
   getProvider: async () => (await chrome.storage.local.get('provider')).provider,
+  pauseStore: sessionPauseStore(chrome.storage.session), // a 429 backoff outlives a worker restart
 });
 
 /** chrome.storage.local one key at a time, which is all the service needs. */
@@ -55,7 +56,13 @@ chrome.runtime.onMessage.addListener((message, _sender, reply) => {
 // whether to watch the page at all, and a change to the "never send" list makes each decide afresh.
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
-  if (changes.session) broadcast({ type: 'session', active: Boolean(changes.session.newValue) });
+  // Every check writes the session (lastCheckAt), so only a change in whether one exists may be
+  // broadcast; announcing every write made each tab re-check, which wrote again, without end.
+  if (changes.session) {
+    const was = Boolean(changes.session.oldValue);
+    const is = Boolean(changes.session.newValue);
+    if (was !== is) broadcast({ type: 'session', active: is });
+  }
   if (changes.excludedHosts) broadcast({ type: 'recheck' });
 });
 

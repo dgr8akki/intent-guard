@@ -75,6 +75,7 @@ describe('options: connecting a key', () => {
     await connect(page);
     assert.equal(chrome.data.get('apiKey'), undefined);
     assert.equal(page.document.getElementById('api-key').getAttribute('aria-invalid'), 'true');
+    assert.equal(page.document.activeElement.id, 'api-key', 'the field is what the user has to fix');
     page.restore();
   });
 
@@ -153,7 +154,7 @@ describe('options: key field details', () => {
     page.restore();
   });
 
-  it('shows and hides the key on request', async () => {
+  it('shows and hides the key on request, with a fixed label and aria-pressed', async () => {
     const page = await options(fakeChrome());
     const { document } = page;
     const input = document.getElementById('api-key');
@@ -163,10 +164,32 @@ describe('options: key field details', () => {
     show.click();
     assert.equal(input.type, 'text');
     assert.equal(show.getAttribute('aria-pressed'), 'true');
-    assert.equal(show.textContent, 'Hide');
+    assert.equal(show.textContent.trim(), 'Show key');
+    assert.equal(document.activeElement, input);
     show.click();
     assert.equal(input.type, 'password');
-    assert.equal(show.textContent, 'Show');
+    assert.equal(show.textContent.trim(), 'Show key');
+    page.restore();
+  });
+
+  it('hides the key again on submit and on Cancel', async () => {
+    globalThis.fetch = async () => working;
+    const page = await options(fakeChrome({ local: { apiKey: 'vck_saved', provider: 'vercel' } }));
+    const { document, tick } = page;
+    document.getElementById('replace').click();
+    await tick();
+    const input = document.getElementById('api-key');
+    document.getElementById('show-key').click();
+    assert.equal(input.type, 'text');
+    document.getElementById('cancel').click();
+    await tick();
+    assert.equal(input.type, 'password');
+    assert.equal(document.getElementById('show-key').getAttribute('aria-pressed'), 'false');
+    document.getElementById('replace').click();
+    await tick();
+    document.getElementById('show-key').click();
+    await connect(page);
+    assert.equal(input.type, 'password', 'a checked key is in storage; nothing readable stays on screen');
     page.restore();
   });
 });

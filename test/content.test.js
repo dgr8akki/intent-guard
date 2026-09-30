@@ -33,6 +33,12 @@ async function load(reply, url = 'https://www.youtube.com/shorts/abc?feature=sha
       getURL: (path) => `chrome-extension://intent-guard/${path}`,
       sendMessage: async (message) => {
         sent.push(message);
+        // The page asks whether a session runs before checking. A reply that answers that itself wins;
+        // otherwise answer from what it would say to a check.
+        if (message.type === 'session?') {
+          const own = reply(message);
+          return typeof own?.active === 'boolean' ? own : { active: Boolean(reply({ type: 'check' })?.active) };
+        }
         return reply(message);
       },
       onMessage: { addListener: (fn) => listeners.push(fn) },
@@ -54,6 +60,8 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
 const withExclusion = (excluded, reply) => (m) =>
   m.type === 'excluded' ? { excluded } : typeof reply === 'function' ? reply(m) : reply;
 
+const onTask = { active: true, verdict: 'on', nudgeAt: null };
+
 const drifted = {
   active: true,
   verdict: 'off',
@@ -64,7 +72,7 @@ const drifted = {
 
 describe('content script', () => {
   it('sends origin, path, title and text only', async () => {
-    const { checks, close } = await load(withExclusion(false, { active: false }));
+    const { checks, close } = await load(withExclusion(false, onTask));
     const { page } = checks()[0];
     assert.equal(page.url, 'https://www.youtube.com/shorts/abc');
     assert.equal(page.title, 'Cat Shorts');
@@ -73,7 +81,7 @@ describe('content script', () => {
   });
 
   it('sends only the heading and description when a page has them', async () => {
-    const { checks, close } = await load(withExclusion(false, { active: false }));
+    const { checks, close } = await load(withExclusion(false, onTask));
     assert.equal(checks()[0].page.text, 'Cats Funny cats', 'body text stays on the page');
     close();
   });
@@ -83,7 +91,7 @@ describe('content script', () => {
     const html = `<title>Long</title><main><nav>Menu Home About</nav><header>Masthead</header>
       <script>var secret = 1;</script><style>.x{}</style><noscript>Enable JS</noscript>
       <aside>Sidebar promo</aside><p aria-hidden="true">decorative</p><p>Story ${filler}</p><footer>Copyright</footer></main>`;
-    const { checks, close } = await load(withExclusion(false, { active: false }), 'https://news.example/story', html);
+    const { checks, close } = await load(withExclusion(false, onTask), 'https://news.example/story', html);
     const { text } = checks()[0].page;
     assert.ok(text.length <= 300, `${text.length} chars`);
     assert.ok(text.length >= 250, 'reads into the body');
@@ -124,18 +132,15 @@ describe('content script', () => {
   });
 
   it('asks the service worker about the host before each check, and sends only the origin when it is excluded', async () => {
-    const { sent, checks, close } = await load(
-      withExclusion(true, { active: false }),
-      'https://mail.google.com/mail/u/0/#inbox',
-    );
-    assert.deepEqual(plain(sent[0]), { type: 'excluded', host: 'mail.google.com' });
+    const { sent, checks, close } = await load(withExclusion(true, onTask), 'https://mail.google.com/mail/u/0/#inbox');
+    assert.deepEqual(plain(sent[1]), { type: 'excluded', host: 'mail.google.com' });
     assert.deepEqual(plain(checks()[0].page), { url: 'https://mail.google.com', title: '', text: '' });
     close();
   });
 
   it('sends only the origin from a page with a password field', async () => {
     const { sent, checks, close } = await load(
-      withExclusion(false, { active: false }),
+      withExclusion(false, onTask),
       'https://shop.example/account/login?next=/cart',
       `${PAGE}<form><input type="password" name="pw"></form>`,
     );
@@ -146,7 +151,7 @@ describe('content script', () => {
 
   it('sends only the origin from a page marked noindex', async () => {
     const { checks, close } = await load(
-      withExclusion(false, { active: false }),
+      withExclusion(false, onTask),
       'https://docs.example/private/abc123',
       `${PAGE}<meta name="robots" content="noindex, nofollow">`,
     );
@@ -155,13 +160,13 @@ describe('content script', () => {
   });
 
   it('treats an unanswered exclusion question as excluded', async () => {
-    const { checks, close } = await load((m) => (m.type === 'excluded' ? {} : { active: false }));
+    const { checks, close } = await load((m) => (m.type === 'excluded' ? {} : onTask));
     assert.equal(checks()[0].page.title, '');
     close();
   });
 
   it('is a no-op when injected a second time into the same page', async () => {
-    const { window, checks, close } = await load(withExclusion(false, { active: false }));
+    const { window, checks, close } = await load(withExclusion(false, onTask));
     window.eval(script); // executeScript over open tabs can hit a page that already has it
     await new Promise((resolve) => setTimeout(resolve, 0));
     assert.equal(checks().length, 1);
@@ -227,22 +232,20 @@ describe('content script', () => {
 });
 
 describe('content script: only works while a session runs', () => {
-  const onTask = { active: true, verdict: 'on', nudgeAt: null };
-
-  it('checks once on load and then stays quiet without a session', async () => {
-    const { window, checks, settle, close } = await load(withExclusion(false, { active: false }));
-    assert.equal(checks().length, 1);
+  it('asks whether a session runs, reads nothing when there is none, and stays quiet', async () => {
+    const { window, sent, checks, settle, close } = await load(withExclusion(false, { active: false }));
+    assert.deepEqual(plain(sent), [{ type: 'session?' }], 'no snapshot, not even the exclusion question');
     window.document.dispatchEvent(new window.Event('visibilitychange'));
     window.history.pushState({}, '', '/watch');
     window.dispatchEvent(new window.PopStateEvent('popstate'));
     await settle();
-    assert.equal(checks().length, 1, 'no visibility or URL re-check while inactive');
+    assert.equal(checks().length, 0, 'no visibility or URL re-check while inactive');
     close();
   });
 
   it('wakes up when the worker says a session started, and stops when it ends', async () => {
     const { window, checks, deliver, settle, nudge, close } = await load(withExclusion(false, onTask));
-    // Pretend the first reply had been inactive: the worker then pushes the change.
+    assert.equal(checks().length, 1, 'session? said yes, so the page checked');
     deliver({ type: 'session', active: true });
     await settle(50);
     assert.equal(checks().length, 2);
@@ -254,6 +257,20 @@ describe('content script: only works while a session runs', () => {
     await settle(50);
     assert.equal(checks().length, 3, 'nothing after the session ended');
     assert.equal(nudge(), undefined);
+    close();
+  });
+
+  it('keeps watching after a failed check, so recovery is noticed', async () => {
+    let failing = true;
+    const { window, checks, settle, nudge, close } = await load((m) =>
+      m.type === 'check' ? (failing ? { error: 'Jev is busy.' } : onTask) : m.type === 'session?' ? onTask : {},
+    );
+    assert.equal(checks().length, 1);
+    assert.equal(nudge(), undefined, 'a failure shows no card');
+    failing = false;
+    window.document.dispatchEvent(new window.Event('visibilitychange'));
+    await settle(20);
+    assert.equal(checks().length, 2, 'an error reply must not switch the page off');
     close();
   });
 
@@ -339,12 +356,16 @@ describe('content script: timers, hidden tabs and recheck', () => {
     window.close();
   });
 
-  it('a recheck message triggers a fresh check even after an inactive reply', async () => {
-    const { checks, deliver, settle, close } = await load(withExclusion(false, { active: false }));
-    assert.equal(checks().length, 1);
+  it('a recheck message asks again, and checks once the answer is yes', async () => {
+    let running = false;
+    const { checks, deliver, settle, close } = await load((m) =>
+      m.type === 'check' || m.type === 'session?' ? { ...onTask, active: running } : {},
+    );
+    assert.equal(checks().length, 0);
+    running = true;
     deliver({ type: 'recheck' });
     await settle(20);
-    assert.equal(checks().length, 2);
+    assert.equal(checks().length, 1);
     close();
   });
 });

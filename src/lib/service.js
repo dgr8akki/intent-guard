@@ -155,6 +155,8 @@ export function createService({
     continue: () => update(() => ({ confirmedAt: now(), lastCheckAt: now() })),
     sweep,
     excluded: async ({ host }) => ({ excluded: isExcluded(host, (await storage.get('excludedHosts')) ?? []) }),
+    // A page asks this before reading anything of itself, so nothing is built without a session.
+    'session?': async () => ({ active: Boolean(await getSession()) }),
     start,
     end,
   };

@@ -75,7 +75,8 @@
     if (document.visibilityState !== 'visible') return;
     if (active === false) return; // no session: nothing is read or sent until the worker says one started
     const result = await send({ type: 'check', page: snapshot(await isExcluded()) });
-    setActive(Boolean(result?.active));
+    // Only a real answer says whether a session runs; a failed check ({ error }) keeps the page watching.
+    if (typeof result?.active === 'boolean') setActive(result.active);
     if (!result?.active || result.nudgeAt === null || result.nudgeAt === undefined) return hide();
     const now = Date.now();
     let wait = result.nudgeAt - now;
@@ -217,15 +218,28 @@
     }
   }
 
+  /** First contact: ask whether a session runs before reading anything of the page. */
+  async function start() {
+    if (document.visibilityState !== 'visible') return;
+    const reply = await send({ type: 'session?' });
+    setActive(Boolean(reply?.active));
+    if (active) check();
+  }
+
+  // A tab that loads hidden asks once it is shown; while active, setActive() owns this event.
+  document.addEventListener('visibilitychange', () => {
+    if (active === null) start();
+  });
+
   chrome.runtime.onMessage.addListener((message) => {
     if (message?.type === 'session') {
       setActive(message.active);
       if (message.active) check();
     } else if (message?.type === 'recheck') {
       active = null; // whatever changed, ask again
-      check();
+      start();
     }
   });
 
-  check();
+  start();
 })();

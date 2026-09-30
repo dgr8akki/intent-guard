@@ -206,6 +206,13 @@ describe('service: start', () => {
   });
 });
 
+describe('service: session?', () => {
+  it('says whether a session runs so a page can decide before reading itself', async () => {
+    assert.deepEqual(await setup().service.handle({ type: 'session?' }), { active: true });
+    assert.deepEqual(await setup({ session: null }).service.handle({ type: 'session?' }), { active: false });
+  });
+});
+
 describe('service: excluded', () => {
   it('excludes the built-in list', async () => {
     const { service } = setup();
@@ -351,10 +358,12 @@ describe('service: stale sessions', () => {
 
 describe('service: locking and routing', () => {
   it('serialises concurrent checks so no session write is lost', async () => {
+    // The judge answers one page at a time, so hold the first request and let the other messages queue
+    // on the session lock behind it; every write must survive once the gate opens.
     let release;
     const gate = new Promise((resolve) => (release = resolve));
     const jev = fakeJev(async (body) => {
-      if (/URL: https:\/\/slow\.example/.test(body.state)) await gate; // the first tab's request hangs
+      if (/URL: https:\/\/slow\.example/.test(body.state)) await gate;
       return /URL: https:\/\/slow\.example/.test(body.state) ? relevance(0.9, 0.1, 0, 0) : relevance(0, 0, 0, 1);
     });
     const storage = fakeStorage({ session: newSession('Book flights', 2, 1000) });
@@ -362,13 +371,15 @@ describe('service: locking and routing', () => {
     const slow = service.handle({ type: 'check', page: { url: 'https://slow.example/a', title: 'Slow', text: 's' } });
     const fast = service.handle({ type: 'check', page: { url: 'https://fast.example/b', title: 'Fast', text: 'f' } });
     const allow = service.handle({ type: 'allow', url: 'https://www.youtube.com/watch?v=1' });
-    await Promise.all([fast, allow]);
+    await allow; // an edit does not wait for the judge
+    assert.deepEqual(storage.data.get('session').allowHosts, ['youtube.com']);
     release();
-    await slow;
+    await Promise.all([slow, fast]);
     const session = storage.data.get('session');
-    assert.deepEqual(session.allowHosts, ['youtube.com'], 'the allow survived the slow check');
-    assert.equal(session.lastOnTaskUrl, 'https://fast.example/b', 'the fast check survived too');
+    assert.deepEqual(session.allowHosts, ['youtube.com'], 'the allow survived both checks');
+    assert.equal(session.lastOnTaskUrl, 'https://fast.example/b');
     assert.deepEqual(session.onHosts, ['fast.example']);
+    assert.equal(session.offSince, null, 'fast (on) was written after slow (off), in queue order');
   });
 
   it('applies read-modify-write in order when two edits race', async () => {
