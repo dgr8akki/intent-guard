@@ -6,7 +6,7 @@ Type what you're working on. Intent Guard checks each page against that, so a Yo
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/nudge-dark.png" />
-  <img src="docs/nudge-light.png" width="520" alt="A short-video feed with the Intent Guard card in the bottom-right corner: This doesn't look like part of &quot;Compare flights to Goa for December&quot;, with a Back to task button and It's part of it and 5 more minutes below it." />
+  <img src="docs/nudge-light.png" width="520" alt="The Wikipedia article on sourdough with the Intent Guard card in the bottom-right corner: This doesn't look like part of &quot;Drafting the September release notes&quot;, with a Back to task button and It's part of it and 5 more minutes below it." />
 </picture>
 
 ## Why not a blocker
@@ -31,7 +31,7 @@ Intent Guard spends from your account, not mine. A full day of browsing costs a 
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/options-dark.png" />
-  <img src="docs/options-light.png" width="520" alt="Intent Guard settings: the key source toggle set to one provider, numbered steps for getting a key there, and the key input with its Connect button." />
+  <img src="docs/options-light.png" width="520" alt="Intent Guard settings once a key is connected: a Connected line naming the provider and the masked key, Test, Replace and Remove buttons, and below it the Never send these sites list with its Add field." />
 </picture>
 
 ## A session
@@ -42,7 +42,7 @@ If it can't tell, it does nothing: unclear pages don't start or stop the clock. 
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/popup-dark.png" />
-  <img src="docs/popup-light.png" width="360" alt="The Intent Guard popup: a What are you working on? field on a ruled line, a Nudge after 1 / 2 / 5 / 10 min control with 2 min selected, and a Start session button." />
+  <img src="docs/popup-light.png" width="408" alt="The Intent Guard popup before a session: Drafting the September release notes typed under What are you working on?, a Nudge after 1 / 2 / 5 / 10 min control with 2 min selected, and a Start session button." />
 </picture>
 
 ## How a page is judged
