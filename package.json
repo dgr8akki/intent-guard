@@ -1,6 +1,6 @@
 {
   "name": "intent-guard",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Chrome extension that nudges you back when you drift off the task you set, powered by Jev.",
   "type": "module",
