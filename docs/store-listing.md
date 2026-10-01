@@ -57,6 +57,16 @@ Category: Well-being. Second choice: Workflow & Planning. Default language: Engl
 Intent Guard shows the user a card when they drift from a task they typed. During a session the user has started, it judges each page the user views for relevance to that task and, after the user has been off task for the number of minutes they chose, shows a dismissable card on the page with a link back to the last on-task page.
 ```
 
+### Host permission justification (the dashboard box)
+
+The dashboard has one shared box for every host, capped at 1,000 characters, so the per-host answers below don't fit as they are. This is the text that was submitted on 1 October 2026 (929/1,000). The per-host answers stay as the longer reference.
+
+```text
+http://*/* and https://*/*: the extension judges whether the open page serves the task the user typed, so it must run on any web page. It reads nothing unless a session is running. Then it sends the origin and path (no query or fragment), the title, and the heading and meta description, or up to 300 characters of opening text. Webmail, banking, government, health, password managers, sign-in pages, pages with a password field or noindex, and sites the user adds are never described. It never reads form fields, cookies or frames, and the content script makes no network requests. The host permissions mirror its matches so the worker can message open tabs; the install warning is the same either way.
+
+api.typesafe.ai and ai-gateway.vercel.sh: two routes to the same Jev model. The service worker sends the task and page summary, with the user's own key, to whichever one the user picked in settings, and nothing to the other.
+```
+
 ### Permission justifications
 
 storage
