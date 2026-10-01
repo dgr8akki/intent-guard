@@ -13,7 +13,7 @@ const count = $('count');
 
 const COUNT_FROM = 160; // show the counter from here
 
-// The popup only needs to know that a key exists; the key itself stays on the settings page and in the worker.
+// The popup asks only whether a key is saved. The key is read by the worker and the settings page, never here.
 const [
   connected,
   { session = null, excludedHosts = [], provider, consentAcknowledgedAt = 0, lastError = null },

@@ -16,7 +16,7 @@ export const QUESTIONS = {
   },
 };
 
-// A side of the scale needs this much probability to decide the verdict.
+// Probability one side (on or off task) must reach before it decides; below it the page is unclear.
 export const VERDICT_THRESHOLD = 0.6;
 
 // Characters of page text sent with the title: the heading and description, or the opening text when there are none.

@@ -8,8 +8,6 @@
  * Patterns: `example.com` matches the host and its subdomains, `login.*` the
  * first label, `*.gov` the ending, `*.gov.*` a label anywhere, `*bank*` a
  * substring.
- *
- * @module lib/exclusions
  */
 
 /** @type {string[]} */

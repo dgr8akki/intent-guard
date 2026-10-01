@@ -44,13 +44,25 @@ async function load(reply, url = 'https://www.youtube.com/shorts/abc?feature=sha
       onMessage: { addListener: (fn) => listeners.push(fn) },
     },
   };
+  // Track live intervals so a test can see whether an old URL poll is left running.
+  const intervals = new Set();
+  const { setInterval: realSet, clearInterval: realClear } = window;
+  window.setInterval = (fn, ms) => {
+    const id = realSet.call(window, fn, ms);
+    intervals.add(id);
+    return id;
+  };
+  window.clearInterval = (id) => {
+    intervals.delete(id);
+    realClear.call(window, id);
+  };
   window.eval(script);
   await new Promise((resolve) => setTimeout(resolve, 0));
   const nudge = () => window.document.querySelector('intent-guard-nudge')?.shadowRoot;
   const checks = () => sent.filter((m) => m.type === 'check');
   const deliver = (message) => listeners.forEach((fn) => fn(message));
   const settle = (ms = 1700) => new Promise((resolve) => setTimeout(resolve, ms)); // past SETTLE_MS
-  return { window, sent, checks, deliver, settle, fonts, nudge, navigations, close: () => window.close() };
+  return { window, sent, checks, deliver, settle, fonts, nudge, navigations, intervals, close: () => window.close() };
 }
 
 /** Messages are created in the jsdom realm; copy them before comparing structures. */
@@ -366,6 +378,17 @@ describe('content script: timers, hidden tabs and recheck', () => {
     deliver({ type: 'recheck' });
     await settle(20);
     assert.equal(checks().length, 1);
+    close();
+  });
+
+  it('keeps one URL poll when a recheck starts the session again', async () => {
+    const { deliver, settle, intervals, close } = await load(withExclusion(false, onTask));
+    assert.equal(intervals.size, 1, 'the running session polls the URL');
+    deliver({ type: 'recheck' });
+    await settle(20);
+    assert.equal(intervals.size, 1, 'the second setActive(true) replaced the poll instead of adding one');
+    deliver({ type: 'session', active: false });
+    assert.equal(intervals.size, 0, 'ending the session stops the poll');
     close();
   });
 });

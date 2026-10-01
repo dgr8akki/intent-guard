@@ -8,7 +8,7 @@ const input = $('api-key');
 const button = $('show-key');
 const status = $('key-status');
 
-// The label stays put; aria-pressed carries the state.
+// Button text never changes; screen readers get the on/off from aria-pressed.
 function reveal(show) {
   input.type = show ? 'text' : 'password';
   button.setAttribute('aria-pressed', String(show));
@@ -19,7 +19,7 @@ button.addEventListener('click', () => {
   input.focus({ preventScroll: true });
 });
 
-// A key that has been checked goes to storage, and a cancelled edit is over: nothing readable stays on screen.
+// Hide the key again on Connect and on Cancel. Either way the user is done looking at it.
 input.form.addEventListener('submit', () => reveal(false));
 $('cancel').addEventListener('click', () => reveal(false));
 

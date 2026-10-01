@@ -17,18 +17,18 @@ Tell it what you're working on. Wander onto unrelated pages for a few minutes an
 ```text
 Type what you're working on. Every page you open is checked against it, and after a few minutes on pages that aren't part of it a small card appears: Back to task. Nothing is sent when no session is running.
 
-There is no blocklist to maintain. The same site can hold the tutorial you need and the feed you should not be in, so Intent Guard reads the heading of the page you are on and asks one question: does this help with the task you typed? It uses Jev, a decision model from TypeSafe that answers with probabilities rather than text. Being loosely related counts as off task; reading about Goa's history while you are meant to be booking a flight to Goa is what this is for. If you disagree, one click allows the site for the session.
+There is no blocklist to maintain. The same site can hold the tutorial you need and the feed you should not be in, so Intent Guard reads the heading of the page you are on and asks one question: does this help with the task you typed? The judge is Jev, TypeSafe's decision model: it picks among fixed answers and gives a probability for each, and it writes no text. Being loosely related counts as off task; reading about Goa's history while you are meant to be booking a flight to Goa is what this is for. If you disagree, one click allows the site for the session.
 
 How a session works
 Click the icon, type your task, pick how long you may wander (1, 2, 5 or 10 minutes) and press Start session. Each page is placed on a four-level scale: distraction, loosely related, useful for the task, exactly the task. The two "on" levels are added up, and so are the two "off" levels. A side needs 60% to decide, and an unclear page leaves the drift clock alone. Once you have been off task for your chosen time, a card appears in the bottom-right corner of the page. No sound, no animation, and it takes no focus from what you were doing. Back to task returns to the last page that was on task. It's part of it allows the site for the rest of the session. 5 more minutes (or the Escape key) snoozes. While you browse on, the card does not come back until another drift period has passed.
 
 The popup shows the session clock, whether you are off task and when the next card is due, the sites you have allowed, and a Don't judge this site button for the page you are on. Sessions end on their own after 90 minutes without a page check, or after 8 hours. If the provider stops answering, the popup says so under your task and the toolbar icon shows a badge until a check succeeds.
 
-Before you start
-You need your own API key: a TypeSafe key (console.typesafe.ai/keys) or a Vercel AI Gateway key (vercel.com/docs/ai-gateway). The settings page opens on install. Pick the provider, paste the key, press Connect. The key is tested before it is saved and is never shown again. A day of browsing costs less than a cent, billed to your own account, and with Vercel you can put a spend limit on the key.
+Getting a key
+Intent Guard runs on a key of your own, from TypeSafe (console.typesafe.ai/keys) or from Vercel AI Gateway (vercel.com/docs/ai-gateway). Settings open by themselves after you install. Select its provider, paste, and Connect tries it once, and a key that fails is not stored. Once saved, it is never displayed again. Your account pays, and a full day of browsing costs a fraction of a cent. A Vercel key can be given a budget cap.
 
 Privacy
-No servers, accounts or analytics. During a session, for each page you view, this goes to the provider you picked (TypeSafe directly, or Vercel AI Gateway, which forwards it to TypeSafe): your task, the page's origin and path, its title, and its heading and description, or up to 300 characters of opening text when it has neither. Query strings, URL fragments, form contents, cookies and embedded frames are never sent. Webmail, banking, government, health and password-manager sites, sign-in pages, any page with a password field and any page marked noindex are never described at all, and you can add sites of your own. Judgments are cached until you close the browser. Your key is sent as a bearer token on each request, to the provider that issued it and nowhere else. Full policy: github.com/dgr8akki/intent-guard/blob/main/PRIVACY.md
+Intent Guard has no backend of its own and does not count or track you. During a session, each page you view is summarised and sent to TypeSafe, either straight to its API or through Vercel AI Gateway, depending on your setting. The summary is your task, the page's origin and path, its title, and its heading and description, or up to 300 characters of opening text when it has neither. Query strings, URL fragments, form contents, cookies and embedded frames are never sent. Webmail, banking, government, health and password-manager sites, sign-in pages, any page with a password field and any page marked noindex are never described at all, and you can add sites of your own. Verdicts are remembered until the browser closes. Each request carries your key in its Authorization header, and only the company that issued the key ever receives it. Full policy: github.com/dgr8akki/intent-guard/blob/main/PRIVACY.md
 
 Permissions, in plain words
 Read and change data on all websites: to read the heading of the page you are on during a session and to draw the card. There is no way to judge a page without running on it. The same access lets the extension reach tabs that were already open when you installed it or started a session.
@@ -44,7 +44,7 @@ Category: Well-being. Second choice: Workflow & Planning. Default language: Engl
 
 ### URLs
 
-- Official URL: leave empty (a repo cannot be verified in Search Console).
+- Official URL: none. Search Console verification needs a site you control, and a GitHub repo does not qualify.
 - Homepage URL: https://github.com/dgr8akki/intent-guard
 - Support URL: https://github.com/dgr8akki/intent-guard/issues
 - Privacy policy URL: https://github.com/dgr8akki/intent-guard/blob/main/PRIVACY.md (the repo must be public for the reviewer to load it).
@@ -62,19 +62,19 @@ Intent Guard shows the user a card when they drift from a task they typed. Durin
 storage
 
 ```text
-Keeps the user's API key and chosen provider (TypeSafe or Vercel AI Gateway); the current session (task text, start time, chosen drift minutes, allowed sites, sites already judged on task, when the current off-task stretch began, the last on-task URL, when a page last reported in); the user's list of sites never to send; whether the one-time note about what is sent has been dismissed; and the last failed check, so the popup can report a provider problem. Access level is TRUSTED_CONTEXTS, so content scripts cannot read the key. Relevance judgments are cached in chrome.storage.session and cleared when the browser closes. No history of pages visited is kept.
+Holds, on the user's machine: the API key and which provider issued it (TypeSafe or Vercel AI Gateway); the current session (task text, start time, chosen drift minutes, allowed sites, sites already judged on task, when the current off-task stretch began, the last on-task URL, when a page last reported in); the user's list of sites never to send; whether the one-time note about what is sent has been dismissed; and the last failed check, so the popup can report a provider problem. Access level is TRUSTED_CONTEXTS, so content scripts cannot read the key. A judgment cache in chrome.storage.session holds the task, URL (origin and path) and title of each page already judged, with its verdict, capped at 500 entries and cleared when the browser closes. No history of pages visited is kept beyond that cache.
 ```
 
 host_permissions: https://api.typesafe.ai/*
 
 ```text
-Lets the service worker POST the task and page summary to TypeSafe's Jev API for a relevance judgment when the user has chosen TypeSafe as their provider. Requests carry the user's own API key. Not used while the provider is Vercel.
+The service worker POSTs the task and page summary here to get a relevance judgment from TypeSafe's Jev API. Used only if TypeSafe is the provider selected in settings, and only with the key the user pasted. Idle while Vercel is selected.
 ```
 
 host_permissions: https://ai-gateway.vercel.sh/*
 
 ```text
-Lets the service worker POST the same request to Vercel AI Gateway, which forwards it to the same model, when the user has chosen Vercel. Not used while the provider is TypeSafe. Both hosts are declared because the user picks between them in settings.
+The alternative route: the same request, sent to Vercel AI Gateway, which relays it to the Jev model. Used only if Vercel is selected; idle while TypeSafe is. Each user chooses one route in settings, and the extension cannot know in advance which, so it declares both.
 ```
 
 Host permissions (content script on `http://*/*` and `https://*/*`, plus matching `host_permissions`)
@@ -93,7 +93,7 @@ On install and whenever a session starts, the service worker adds the same conte
 Remote code
 
 ```text
-No. All code ships in the package. No remote scripts, no eval, no dynamic import from a URL. Network traffic is limited to POST requests to the chosen model API, which return JSON probabilities. Fonts are bundled. The card's markup is a constant template; the user's task is inserted with textContent.
+No. Every script Intent Guard runs is in the uploaded zip; it does not fetch code, call eval or new Function, or import modules by URL. The only requests it makes are POSTs to the selected provider, and the replies are JSON numbers, never code. Fonts are bundled. The card's markup is a constant template; the user's task is inserted with textContent.
 ```
 
 ### Data usage disclosure
@@ -103,18 +103,18 @@ Tick:
 - Web history: the origin and path of every judged page during a session, plus its title, are sent to the provider. Query strings and fragments are stripped, but this is browsing history by any honest reading.
 - Website content: the heading and description, or up to 300 characters of opening text, per judged page.
 - User activity: the task the user typed is sent with every judgment, and the drift clock is a record of browsing behaviour, even though it stays local.
-- Authentication information: the API key is stored and sent as a bearer token to its issuer.
+- Authentication information: the user's API key, kept locally and sent only to the provider that issued it, in the Authorization header.
 
 Leave unticked, and why:
 
 - Personal communications: webmail hosts are on the built-in never-send list, pages with a password field are skipped, and form contents and frames are never read, so the body of an email or message is not sent. Decision D-NEW-IG-4.
 - Personally identifiable information, health, financial, location: nothing identifies the user, and banking, health and government sites are on the never-send list. A page's heading could contain a name, but that is website content.
 
-Certifications, all three ticked truthfully: no sale or transfer outside approved use cases (summaries go to TypeSafe or Vercel only to produce the verdict); no use unrelated to the single purpose (no analytics or telemetry); no creditworthiness or lending use.
+Certifications: tick all three. Nothing is sold or passed on; page summaries reach TypeSafe or Vercel only so a verdict can come back. Nothing is used outside the drift check, as there is no telemetry of any kind. Nothing is used to judge creditworthiness or for lending.
 
 ## Distribution tab
 
-Visibility: Unlisted for the first upload, then Public. Regions: all. Pricing: free. Mature content: no. Publisher display name: Aakash Pahuja. Contact: pahujaaakash5@gmail.com. Trader declaration: non-trader.
+Pricing: free. Regions: all. Mature content: no. Visibility: Unlisted until the first review clears, Public after that. Publisher shown as Aakash Pahuja. Contact: pahujaaakash5@gmail.com. Trader declaration: non-trader.
 
 ## Release notes (300 characters max; used on the GitHub release)
 

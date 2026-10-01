@@ -21,17 +21,17 @@ Intent Guard reads the heading of the page you are on and asks one question: doe
 
 Intent Guard isn't on the Chrome Web Store yet. To install from source:
 
-1. Download the latest `intent-guard-x.y.z.zip` from [Releases](https://github.com/dgr8akki/intent-guard/releases) and unzip it, or clone this repo.
-2. Open `chrome://extensions` and turn on Developer mode.
-3. Click Load unpacked and select the unzipped folder (or `src/` in a clone).
-4. The settings page opens on install. Pick where your key comes from, [TypeSafe](https://console.typesafe.ai/keys) or [Vercel AI Gateway](https://vercel.com/docs/ai-gateway/authentication-and-byok/api-keys), paste it and select Connect. The key is checked before it's saved. (Later, the gear in the popup opens the same page.)
-5. Click the Intent Guard icon, type what you're working on and press Start session.
+1. Get a build: grab `intent-guard-x.y.z.zip` from [Releases](https://github.com/dgr8akki/intent-guard/releases) and extract it. A clone works too.
+2. In `chrome://extensions`, switch Developer mode on.
+3. Load unpacked, then point it at the extracted folder (in a clone, at `src/`).
+4. Settings appear by themselves the first time. Choose [TypeSafe](https://console.typesafe.ai/keys) or [Vercel AI Gateway](https://vercel.com/docs/ai-gateway/authentication-and-byok/api-keys) as the source of your key, paste it in and hit Connect. A key that fails a test call is not stored. The gear in the popup brings this page back later.
+5. Open the popup from the toolbar, write down the task and press Start session.
 
-You bring your own key. With Vercel, put a [spend limit](https://vercel.com/docs/ai-gateway/observability-and-spend/budgets) on it. A day of browsing costs less than a cent either way; in September 2026 TypeSafe charged $0.042 per million input tokens.
+Intent Guard spends from your account, not mine. A full day of browsing costs a fraction of a cent; TypeSafe's price in September 2026 was $0.042 per million input tokens. On Vercel, set a [budget](https://vercel.com/docs/ai-gateway/observability-and-spend/budgets) before you start.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/options-dark.png" />
-  <img src="docs/options-light.png" width="520" alt="The Intent Guard settings page: a Connect Jev card with a choice between Vercel AI Gateway and TypeSafe, setup steps for the chosen provider, an API key field and a Connect button." />
+  <img src="docs/options-light.png" width="520" alt="Intent Guard settings: the key source toggle set to one provider, numbered steps for getting a key there, and the key input with its Connect button." />
 </picture>
 
 ## A session
@@ -45,17 +45,17 @@ If it can't tell, it does nothing: unclear pages don't start or stop the clock. 
   <img src="docs/popup-light.png" width="360" alt="The Intent Guard popup: a What are you working on? field on a ruled line, a Nudge after 1 / 2 / 5 / 10 min control with 2 min selected, and a Start session button." />
 </picture>
 
-## How it decides
+## How a page is judged
 
-Intent Guard uses [Jev](https://typesafe.ai), TypeSafe's System One model. Jev doesn't generate text; it answers typed questions with probabilities. One request per page, cached until you close the browser, asks:
+Every judgment is a call to [Jev](https://typesafe.ai), TypeSafe's System One model, which returns probabilities for a fixed set of answers instead of writing text. Each page costs one request (repeat visits come from a cache that lasts until the browser closes), and the question is:
 
 | Question                                           | Levels                                                                 |
 | -------------------------------------------------- | ---------------------------------------------------------------------- |
 | How much does this page help with the user's task? | Distraction · Loosely related · Useful for the task · Exactly the task |
 
-The verdict comes from adding up each side of the scale. A page that's 55% "useful" and 37% "exactly the task" is 92% on task, even though no single level is confident. A side needs 60% to decide; anything in between is unclear and leaves the clock alone. A site the model has already put on task is not asked about again during the session.
+The two upper levels are summed against the two lower ones. A page that's 55% "useful" and 37% "exactly the task" is 92% on task, even though no single level is confident. Below 60% on either side the page is unclear, and unclear pages leave the clock alone. A site the model has already put on task is not asked about again during the session.
 
-## What leaves your browser
+## What it sends, and why it can
 
 | Permission                          | Why                                                                                                                                                  |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -66,7 +66,7 @@ The verdict comes from adding up each side of the scale. A page that's 55% "usef
 | `scripting`                         | Adds the page checker to tabs that were already open when you installed or started a session                                                         |
 | Host access on all http(s) pages    | Lets the extension see which tabs are open pages and reach them; the content script already runs there, so Chrome shows the same warning             |
 
-For each page, only the origin and path, the title and its heading and description (or up to 300 characters of opening text when it has neither) are sent, either to TypeSafe directly or to Vercel AI Gateway, which forwards them to TypeSafe. Query strings, URL fragments, form contents and embedded frames are never sent. Mail, banking, government, health and password-manager sites, sign-in pages, and any page with a password field or marked `noindex` are never described at all; add your own under Never send these sites in settings, or with Don't judge this site in the popup. The full policy is in [PRIVACY.md](PRIVACY.md).
+For each page, only the origin and path, the title and its heading and description (or up to 300 characters of opening text when it has neither) are sent, either to TypeSafe or through Vercel AI Gateway, which hands them on to TypeSafe. Query strings, URL fragments, form contents and embedded frames are never sent. Mail, banking, government, health and password-manager sites, sign-in pages, and any page with a password field or marked `noindex` are never described at all; add your own under Never send these sites in settings, or with Don't judge this site in the popup. The full policy is in [PRIVACY.md](PRIVACY.md).
 
 ## When it does nothing
 
@@ -81,12 +81,12 @@ Known limits: it judges the heading and opening text only, so a page whose relev
 
 ## Development
 
-Requires Node.js 22 or later.
+Node.js 22+ is required.
 
 ```sh
 npm install
-npm run check      # lint, format check and unit tests
-npm run eval       # live evaluation against Jev (needs TYPESAFE_API_KEY or AI_GATEWAY_API_KEY in .env)
+npm run check      # ESLint, Prettier in check mode, node --test
+npm run eval       # live evaluation against Jev (.env must hold TYPESAFE_API_KEY or AI_GATEWAY_API_KEY)
 npm run icons      # re-render src/icons from assets/icon.svg with headless Chrome
 npm run package    # builds dist/intent-guard-<version>.zip for the Chrome Web Store
 ```
@@ -94,7 +94,7 @@ npm run package    # builds dist/intent-guard-<version>.zip for the Chrome Web S
 ```
 src/
 ├── manifest.json
-├── background.js          Service worker: wires storage and tabs to lib/service.js
+├── background.js          Worker glue: chrome.storage and tabs in, lib/service.js decides
 ├── content/               Page snapshot, URL-change detection and the card
 ├── popup/                 Start and end a session
 ├── options/               Connect, test, replace or remove the API key; never-send list (opens on install)
@@ -107,13 +107,13 @@ test/                      Unit tests; jsdom pages for the content script, popup
 test/live/                 Live check against the real model (npm run eval)
 ```
 
-Unit tests cover the verdict rules, the drift clock, the judge's caching and queueing, the worker's message handling, and the content script, popup and settings pages running in jsdom. The live check (`npm run eval`) judges nine task/page pairs I have actually typed with the real model, including tricky ones like Hacker News showing a Postgres headline while you're fixing a Postgres bug. If you change `QUESTIONS` or the verdict threshold in `guard.js`, run it again and keep it at 100%; add a sample for any new behaviour.
+The unit suite pins down when a page counts as off task, how the drift clock moves, how the judge caches and queues, and what the worker answers each message; the content script, popup and settings page run inside jsdom. The live check (`npm run eval`) judges nine task/page pairs I have actually typed with the real model, including tricky ones like Hacker News showing a Postgres headline while you're fixing a Postgres bug. If you change `QUESTIONS` or the verdict threshold in `guard.js`, run it again and keep it at 100%; add a sample for any new behaviour.
 
 To release: bump `version` in `package.json` and `src/manifest.json` (a test checks they match), add a `CHANGELOG.md` entry, run `npm run check && npm run eval && npm run package`, then upload `dist/intent-guard-<version>.zip` to the Chrome Web Store and attach it to a GitHub release.
 
-## See also
+## Same model, other jobs
 
-Three more extensions built on Jev by the same author: [Slop Radar](https://github.com/dgr8akki/slop-radar) rates the writing style of posts in a feed, [Recipe Mode](https://github.com/dgr8akki/recipe-mode) reads recipes aloud and takes voice commands in the kitchen, and [Jev Voice](https://github.com/dgr8akki/jev-voice) drives web pages by voice.
+If the Jev side of this is what interests you, I use the same client in [Slop Radar](https://github.com/dgr8akki/slop-radar) (feed posts rated on writing style), [Recipe Mode](https://github.com/dgr8akki/recipe-mode) (a recipe read out step by step while you cook) and [Jev Voice](https://github.com/dgr8akki/jev-voice) (spoken commands for the page in front of you).
 
 ## License
 

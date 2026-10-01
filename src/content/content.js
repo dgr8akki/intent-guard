@@ -200,6 +200,7 @@
     if (next) {
       document.addEventListener('visibilitychange', check);
       window.addEventListener('popstate', urlChanged);
+      clearInterval(poll); // a recheck resets `active` without ending the session, so a poll may still run
       poll = setInterval(urlChanged, URL_POLL_MS);
     } else {
       document.removeEventListener('visibilitychange', check);

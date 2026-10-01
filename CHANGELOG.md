@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
+Every release of Intent Guard, latest on top. Sections are the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) ones and versions are [semver](https://semver.org/): a minor bump changes what the guard does, a patch fixes how it does it.
 
 ## [Unreleased]
 

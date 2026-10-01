@@ -2,8 +2,6 @@
  * What the service worker decides, behind a storage adapter so it runs in
  * tests: judging pages against the session, keeping the drift clock, and
  * answering the content script's questions.
- *
- * @module lib/service
  */
 
 import { isExcluded } from './exclusions.js';
